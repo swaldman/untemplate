@@ -1,9 +1,14 @@
 package untemplate
 
+import scala.collection.*
+
 opaque type TransformerSource = Vector[String]
 opaque type TransformerScala  = String
 opaque type Transpiler        = Function1[TransformerSource,TransformerScala]
-opaque type Transformer[A]    = Function2[A,String,String]
+
+type Transformer[-A] = Function1[A,String]
+
+type BlockPrinter[-A] = Function2[A,mutable.Map[String,Any],String]
 
 val Suffix = "untemplate"
 
