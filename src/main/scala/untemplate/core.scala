@@ -12,13 +12,17 @@ val HeaderDelimeter    = "~[]~()>"
 val TextStartDelimeter = "()>"
 val TextEndDelimeter   = "<()"
 
-val WeakTestStartDelimeterRegexString = """\((.*?)\)\>"""
-val WeakTestStartDelimeterRegex = WeakTestStartDelimeterRegexString.r
-val TextStartDelimiterRegex = """^""" + WeakTestStartDelimeterRegexString + """\s*$""".r
+private val WeakTextStartDelimeterRegexString = """\((.*?)\)\>"""
+private val WeakTextStartDelimeterRegex = WeakTextStartDelimeterRegexString.r
+private val TextStartDelimiterRegex = ("""^""" + WeakTextStartDelimeterRegexString + """\s*$""").r
 
-val WeakHeaderDelimeterRegexString = """\~\[(.*?)\]\~\((.*?)\)\>"""
-val WeakHeaderDelimeterRegex = WeakHeaderDelimeterRegexString.r
-val HeaderDelimeterRegex = """^"""+ WeakHeaderDelimeterRegexString + """\s*$"""
+private val WeakTextEndDelimeterRegexString = """\<\(\)"""
+private val WeakTextEndDelimeterRegex = WeakTextEndDelimeterRegexString.r
+private val TextEndDelimeterRegex = ("""^""" + WeakTextEndDelimeterRegexString + """\s*$""").r
+
+private val WeakHeaderDelimeterRegexString = """\~\[(.*?)\]\~\((.*?)\)\>"""
+private val WeakHeaderDelimeterRegex = WeakHeaderDelimeterRegexString.r
+private val HeaderDelimeterRegex = ("""^"""+ WeakHeaderDelimeterRegexString + """\s*$""").r
 
 private val DotSuffix    = "." + Suffix
 private val DotSuffixLen = DotSuffix.length
