@@ -1,6 +1,7 @@
 package untemplate
 
 import scala.collection.*
+import com.mchange.sc.v2.literal.StringLiteral.formatAsciiScalaStringLiteral
 
 private final case class TranspileData1(source : GeneratorSource, spaceNormalized : Vector[String], indentLevels : Vector[Int])
 
@@ -10,7 +11,6 @@ private final case class TranspileData2(last : TranspileData1, parseData : Basic
 
 private final case class CodeBlock( text : String, lastIndent : Int )
 private final case class TranspileData3(last : TranspileData2, textBlocks : List[String], codeBlocks : List[CodeBlock])
-
 
 private def prefixTabSpaceToSpaces(spacesPerTab : Int, line : String) : String =
   def tabspace(c : Char) = c == '\t' || c == ' '
@@ -125,5 +125,23 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
   else
     TranspileData2( td1, BasicParseData(None, Nil) )
 
+def textBlockToSourceConcatenatedLiteralsAndExpressions( indent : Int, textBlock : String ) : String =
+  val prefix = " " * indent
+  val sb = new StringBuilder(textBlock.length * 2)
+  val mi = EmbeddedExpressionRegex.findAllIn(textBlock)
+  var nextStart = 0
+  while mi.hasNext do
+    mi.next()
+    val nextEnd = mi.start
+    val expression = mi.group(1)
+    sb.append(prefix)
+    sb.append(formatAsciiScalaStringLiteral(textBlock.substring(nextStart, nextEnd)))
+    sb.append(" + ")
+    sb.append( expression )
+    sb.append(" +\n")
+    nextStart = mi.end
+  sb.append(prefix)
+  sb.append(formatAsciiScalaStringLiteral(textBlock.substring(nextStart)))
+  sb.toString
 
 

@@ -7,7 +7,8 @@ lazy val root = project
     name                := "untemplate",
     version             := "0.0.1-SNAPSHOT",
     scalaVersion        := ScalaVersion,
-    resolvers += Resolver.mavenLocal,
-    libraryDependencies += "dev.zio" %% "zio" % "2.0.5"
+    resolvers           += Resolver.mavenLocal,
+    libraryDependencies += "dev.zio" %% "zio" % "2.0.5",
+    libraryDependencies += "com.mchange" %% "literal" % "0.1.1-SNAPSHOT"
   )
 

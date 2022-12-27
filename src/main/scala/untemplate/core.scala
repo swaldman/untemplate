@@ -32,7 +32,7 @@ private val UnanchoredHeaderDelimeterRegexString = """\~\[(.*?)\]\~\((.*?)\)\>""
 private val UnanchoredHeaderDelimeterRegex = UnanchoredHeaderDelimeterRegexString.r
 private val AnchoredHeaderDelimeterRegex = ("""^"""+ UnanchoredHeaderDelimeterRegexString + """\s*$""").r
 
-private val EmbeddedExpressionRegex = """\<\((*+?)\)\>"""
+private val EmbeddedExpressionRegex = """\<\((.+?)\)\>""".r
 
 private val DotSuffix    = "." + Suffix
 private val DotSuffixLen = DotSuffix.length
