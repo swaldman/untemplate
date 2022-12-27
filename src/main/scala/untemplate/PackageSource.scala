@@ -21,24 +21,11 @@ object PackageSource:
       }
       val idUniques = idVec.distinct
       if (idVec.size != idUniques.size)
-        throw new NonuniqueIdentifier(s"""Directory '${dirName}' would generate duplicate transformers: ${(idVec.diff(idUniques)).toSet.mkString(",")}""")
+        throw new NonuniqueIdentifier(s"""Directory '${dirName}' would generate duplicate generators: ${(idVec.diff(idUniques)).toSet.mkString(",")}""")
       val identifiersToPaths = Map(idVec.zip(untemplatePaths): _*)
-      val transformerSource: Identifier => Task[TransformerSource] =
-        identifier => ZIO.attemptBlocking(asTransformerSource(Files.readAllLines(identifiersToPaths(identifier), codec.charSet).asScala.toVector))
-      PackageSource(pkg, idVec, transformerSource)
+      val generatorSource: Identifier => Task[GeneratorSource] =
+        identifier => ZIO.attemptBlocking(asGeneratorSource(Files.readAllLines(identifiersToPaths(identifier), codec.charSet).asScala.toVector))
+      PackageSource(pkg, idVec, generatorSource)
     }
 
-case class PackageSource(pkg : Identifier, transformers : Iterable[Identifier], transformerSource : Identifier => Task[TransformerSource])
-
-/*
-object PackageSource:
-  class Directory( dirPath : Path ) extends PackageSource:
-    override def packageName : String = toIdentifier(dirPath.getFileName.toString)
-    override def transformerNames : Iterable[String] = Files.list(dirPath).toScala(Vector)
-
-
-trait PackageSource:
-  def packageName : String
-  def transformerNames : Iterable[String]
-  def sourceForTransformer( name : String ) : String
-*/
+case class PackageSource(pkg : Identifier, generators : Iterable[Identifier], generatorSource : Identifier => Task[GeneratorSource])

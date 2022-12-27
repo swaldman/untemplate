@@ -2,7 +2,7 @@ package untemplate
 
 import scala.collection.*
 
-private case class TranspileData1(source : TransformerSource, spaceNormalized : Vector[String], indentLevels : Vector[Int])
+private case class TranspileData1(source : GeneratorSource, spaceNormalized : Vector[String], indentLevels : Vector[Int])
 
 private case class TextBlockInfo(functionName : Option[String], startDelimeter : Option[Int], stopDelimeter : Option[Int])
 private case class BasicParseData(metadataType : Option[String], textBlockInfos : List[TextBlockInfo])
@@ -23,7 +23,7 @@ private def prefixTabSpaceToSpaces(spacesPerTab : Int, line : String) : String =
 
 private val TabLength = 2
 
-private def untabAndCountSpaces( ts : TransformerSource ) : TranspileData1 =
+private def untabAndCountSpaces( ts : GeneratorSource ) : TranspileData1 =
   val indents = Array[Int](ts.lines.length)
   val oldLines = ts.lines
   val newLines = mutable.Buffer.empty[String]
