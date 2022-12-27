@@ -12,22 +12,27 @@ type BlockPrinter[-A] = Function2[A,mutable.Map[String,Any],String]
 
 val Suffix = "untemplate"
 
-val HeaderDelimeter    = "~[]~()>"
+// these are just examples
+// val HeaderDelimeter    = "~[]~()>"
 
-val TextStartDelimeter = "()>"
-val TextEndDelimeter   = "<()"
+// val TextStartDelimeter = "()>"
+// val TextEndDelimeter   = "<()"
 
-private val WeakTextStartDelimeterRegexString = """\((.*?)\)\>"""
-private val WeakTextStartDelimeterRegex = WeakTextStartDelimeterRegexString.r
-private val TextStartDelimiterRegex = ("""^""" + WeakTextStartDelimeterRegexString + """\s*$""").r
+// val EmbeddedExpressionDelimiter = "<()>"
 
-private val WeakTextEndDelimeterRegexString = """\<\(\)"""
-private val WeakTextEndDelimeterRegex = WeakTextEndDelimeterRegexString.r
-private val TextEndDelimeterRegex = ("""^""" + WeakTextEndDelimeterRegexString + """\s*$""").r
+private val UnanchoredTextStartDelimeterRegexString = """\((.*?)\)\>"""
+private val UnanchoredTextStartDelimeterRegex = UnanchoredTextStartDelimeterRegexString.r
+private val AnchoredTextStartDelimiterRegex = ("""^""" + UnanchoredTextStartDelimeterRegexString + """\s*$""").r
 
-private val WeakHeaderDelimeterRegexString = """\~\[(.*?)\]\~\((.*?)\)\>"""
-private val WeakHeaderDelimeterRegex = WeakHeaderDelimeterRegexString.r
-private val HeaderDelimeterRegex = ("""^"""+ WeakHeaderDelimeterRegexString + """\s*$""").r
+private val UnanchoredTextEndDelimeterRegexString = """\<\(\)"""
+private val UnanchoredTextEndDelimeterRegex = UnanchoredTextEndDelimeterRegexString.r
+private val AnchoredTextEndDelimeterRegex = ("""^""" + UnanchoredTextEndDelimeterRegexString + """\s*$""").r
+
+private val UnanchoredHeaderDelimeterRegexString = """\~\[(.*?)\]\~\((.*?)\)\>"""
+private val UnanchoredHeaderDelimeterRegex = UnanchoredHeaderDelimeterRegexString.r
+private val AnchoredHeaderDelimeterRegex = ("""^"""+ UnanchoredHeaderDelimeterRegexString + """\s*$""").r
+
+private val EmbeddedExpressionRegex = """\<\((*+?)\)\>"""
 
 private val DotSuffix    = "." + Suffix
 private val DotSuffixLen = DotSuffix.length

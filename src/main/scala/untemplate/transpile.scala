@@ -2,12 +2,14 @@ package untemplate
 
 import scala.collection.*
 
-private case class TranspileData1(source : GeneratorSource, spaceNormalized : Vector[String], indentLevels : Vector[Int])
+private final case class TranspileData1(source : GeneratorSource, spaceNormalized : Vector[String], indentLevels : Vector[Int])
 
-private case class TextBlockInfo(functionName : Option[String], startDelimeter : Option[Int], stopDelimeter : Option[Int])
-private case class BasicParseData(metadataType : Option[String], textBlockInfos : List[TextBlockInfo])
+private final case class TextBlockInfo(functionName : Option[String], startDelimeter : Option[Int], stopDelimeter : Option[Int])
+private final case class BasicParseData(metadataType : Option[String], textBlockInfos : List[TextBlockInfo])
+private final case class TranspileData2(last : TranspileData1, parseData : BasicParseData)
 
-private case class TranspileData2(last : TranspileData1, parseData : BasicParseData)
+private final case class CodeBlock( text : String, lastIndent : Int )
+private final case class TranspileData3(last : TranspileData2, textBlocks : List[String], codeBlocks : List[CodeBlock])
 
 
 private def prefixTabSpaceToSpaces(spacesPerTab : Int, line : String) : String =
@@ -52,15 +54,15 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
   for( i <- 0 until td1.indentLevels.length)
     if td1.indentLevels(i) == 0 then
       td1.source.lines(i) match {
-        case HeaderDelimeterRegex(metadataType, functionName) =>
+        case AnchoredHeaderDelimeterRegex(metadataType, functionName) =>
           if headerTuple == None then
             headerTuple = Some(Tuple2(i, LineDelimeter.Header(metadataType)))
             parseTuples += Tuple2(i, LineDelimeter.Start(functionName))
           else
             throw new ParseException(s"Duplicate header delimeter at line ${i}")
-        case TextStartDelimiterRegex(functionName) =>
+        case AnchoredTextStartDelimiterRegex(functionName) =>
           parseTuples += Tuple2(i, LineDelimeter.Start(functionName))
-        case TextEndDelimeterRegex() =>
+        case AnchoredTextEndDelimeterRegex() =>
           parseTuples += Tuple2(i, LineDelimeter.End)
       }
 
