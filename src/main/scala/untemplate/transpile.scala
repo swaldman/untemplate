@@ -3,14 +3,20 @@ package untemplate
 import scala.collection.*
 import com.mchange.sc.v2.literal.StringLiteral.formatAsciiScalaStringLiteral
 
+private val LineSep = Option(System.getProperty("line.separator")).getOrElse("\n")
+
 private final case class TranspileData1(source : GeneratorSource, spaceNormalized : Vector[String], indentLevels : Vector[Int])
 
 private final case class TextBlockInfo(functionName : Option[String], startDelimeter : Option[Int], stopDelimeter : Option[Int])
-private final case class BasicParseData(metadataType : Option[String], textBlockInfos : List[TextBlockInfo])
-private final case class TranspileData2(last : TranspileData1, parseData : BasicParseData)
+private final case class TranspileData2(last : TranspileData1, metadataType : Option[String], textBlockInfos : List[TextBlockInfo])
 
-private final case class CodeBlock( text : String, lastIndent : Int )
-private final case class TranspileData3(last : TranspileData2, textBlocks : List[String], codeBlocks : List[CodeBlock])
+private object ParseBlock:
+  final case class Text( functionIdentifier : Option[Identifier], rawTextBlock : String) extends ParseBlock
+  final case class Code( text : String, lastIndent : Int ) extends ParseBlock
+private sealed trait ParseBlock
+
+private case class HeaderInfo(metadataTypeIdentifier : Identifier, headerBlock : ParseBlock.Code)
+private final case class TranspileData3( last : TranspileData2, headerInfo : Option[HeaderInfo], nonheaderBlocks : List[ParseBlock] )
 
 private def prefixTabSpaceToSpaces(spacesPerTab : Int, line : String) : String =
   def tabspace(c : Char) = c == '\t' || c == ' '
@@ -121,9 +127,9 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
         else None
       textBlockInfos.append(TextBlockInfo(functionName,Some(start),end))
     }
-    TranspileData2( td1, BasicParseData(metadataType, textBlockInfos.toList) )
+    TranspileData2( td1, metadataType, textBlockInfos.toList )
   else
-    TranspileData2( td1, BasicParseData(None, Nil) )
+    TranspileData2( td1, None, Nil )
 
 def textBlockToSourceConcatenatedLiteralsAndExpressions( indent : Int, textBlock : String ) : String =
   val prefix = " " * indent
@@ -138,10 +144,69 @@ def textBlockToSourceConcatenatedLiteralsAndExpressions( indent : Int, textBlock
     sb.append(formatAsciiScalaStringLiteral(textBlock.substring(nextStart, nextEnd)))
     sb.append(" + ")
     sb.append( expression )
-    sb.append(" +\n")
+    sb.append(" +")
+    sb.append(LineSep)
     nextStart = mi.end
   sb.append(prefix)
   sb.append(formatAsciiScalaStringLiteral(textBlock.substring(nextStart)))
   sb.toString
+
+private def parseBlockTextFromInfo( unmodifiedLines : Vector[String], info : TextBlockInfo ) =
+  val text = (info.startDelimeter, info.stopDelimeter) match
+    case (Some(before), Some(until)) => unmodifiedLines.slice(before + 1, until).mkString(LineSep)
+    case (None,         Some(until)) => unmodifiedLines.slice(0, until).mkString(LineSep)
+    case (Some(before), None       ) => unmodifiedLines.slice(before + 1, unmodifiedLines.size).mkString(LineSep)
+    case (None,         None       ) => unmodifiedLines.mkString(LineSep)
+  val functionName = info.functionName.map(toIdentifier)
+  ParseBlock.Text(functionName, text)
+
+private def collectBlocks( td2 : TranspileData2 ) : TranspileData3 =
+  val metadataTypeIdentifier                = td2.metadataType.map( toIdentifier ) // if nonempty, we have to separate header
+  var headerBlock : Option[ParseBlock.Code] = None
+
+  // for text, we take from unmodified GeneratorSource.
+  // in other words, don't mess with tabs and spaces
+  val unmodifiedLines = td2.last.source.lines
+
+  // for code, we take from our tab-to-space-normalized lines
+  val normalizedLines = td2.last.spaceNormalized
+  val indents = td2.last.indentLevels
+
+  val infos = td2.textBlockInfos
+  var lastInfo : Option[TextBlockInfo] = None
+  val blocksBuilder = mutable.Buffer.empty[ParseBlock]
+  infos.foreach { info =>
+    val mbPriorCodeBlock =
+      (lastInfo.flatMap(_.stopDelimeter), info.startDelimeter) match
+        case (Some(before), Some(until)) => Some(ParseBlock.Code(normalizedLines.slice(before+1,until).mkString(LineSep), if until == 0 then 0 else indents(until-1)))
+        case (None,         Some(until)) => Some(ParseBlock.Code(normalizedLines.slice(0, until).mkString(LineSep), 0))
+        case (Some(before), None       ) => throw new AssertionError(s"Interior text blocks should have start delimteres! [prior: ${lastInfo}, current: ${info}]")
+        case (None,         None       ) => None // this is the first info, no start means we begin inside text
+
+    def registerCodeBlock( codeBlock : ParseBlock.Code ) =
+      (metadataTypeIdentifier, headerBlock) match
+        case (Some(_), None) => headerBlock = Some(codeBlock)
+        case _               => blocksBuilder.append(codeBlock)
+
+    mbPriorCodeBlock.foreach(registerCodeBlock)
+    blocksBuilder.append(parseBlockTextFromInfo(unmodifiedLines, info))
+    lastInfo = Some(info)
+  }
+  val mbLastCodeBlock =
+    lastInfo.flatMap( _.stopDelimeter ).map { before =>
+      ParseBlock.Code(normalizedLines.slice(before+1,normalizedLines.length).mkString(LineSep), indents.last )
+    }
+  mbLastCodeBlock.foreach(blocksBuilder.append)
+
+  val nonheaderBlocks = blocksBuilder.toList
+  val mbHeaderInfo =
+    for {
+      id     <- metadataTypeIdentifier
+      hblock <- headerBlock
+    }
+    yield HeaderInfo(id, hblock)
+
+  TranspileData3( td2, mbHeaderInfo : Option[HeaderInfo], nonheaderBlocks )
+
 
 
