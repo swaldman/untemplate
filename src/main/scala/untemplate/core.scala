@@ -23,13 +23,15 @@ def toIdentifier( unrestrictedName : String ) : Identifier =
   else
     transformed
 
+val UnitIdentifer = toIdentifier("Unit")
+
 opaque type GeneratorSource = Vector[String]
 opaque type GeneratorScala  = String
-opaque type Transpiler      = Function1[GeneratorSource,GeneratorScala]
+opaque type Transpiler      = Function2[Identifier, GeneratorSource,GeneratorScala]
 
 type Generator[-A] = Function1[A,String]
 
-type BlockPrinter[-A] = Function2[A,mutable.Map[String,Any],String]
+type BlockPrinter[-A] = Function2[A,Scratchpad,String]
 
 val Suffix = "untemplate"
 
@@ -54,6 +56,14 @@ private val UnanchoredHeaderDelimeterRegex = UnanchoredHeaderDelimeterRegexStrin
 private val AnchoredHeaderDelimeterRegex = ("""^"""+ UnanchoredHeaderDelimeterRegexString + """\s*$""").r
 
 private val EmbeddedExpressionRegex = """\<\((.+?)\)\>""".r
+
+private val IndentIncreasePointRegex ="""(?:^|([\r\n]+))""".r
+
+private def nullToBlank(s : String) = if s == null then "" else s
+
+private def increaseIndent( spaces : Int, block : String ) =
+  val indent = " " * spaces
+  IndentIncreasePointRegex.replaceAllIn(block, m => nullToBlank(m.group(1)) + indent)
 
 private val DotSuffix    = "." + Suffix
 private val DotSuffixLen = DotSuffix.length

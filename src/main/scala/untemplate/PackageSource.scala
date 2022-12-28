@@ -7,10 +7,12 @@ import java.nio.file.{Files,Path}
 import zio.*
 
 object PackageSource:
-  def fromDirectory( dirPath : Path, codec : Codec = Codec.UTF8 ) : Task[PackageSource]=
+  def fromDirectory( dirPath : Path, basePath : Option[Path] = None, codec : Codec = Codec.UTF8 ) : Task[PackageSource] =
     ZIO.attemptBlocking {
-      val dirName = dirPath.getFileName.toString
-      val pkg = toIdentifier(dirName)
+      val pkg =
+        val rel = basePath.map( _.relativize(dirPath) ).getOrElse( dirPath.getFileName )
+        val pieces = rel.iterator().asScala.toList
+        pieces.map( piece => toIdentifier(piece.toString) )
       val allFilePaths = Files.list(dirPath).toScala(Vector)
       val untemplatePaths = allFilePaths.filter(_.toString.endsWith(DotSuffix))
       val idVec = untemplatePaths.map {
@@ -28,4 +30,4 @@ object PackageSource:
       PackageSource(pkg, idVec, generatorSource)
     }
 
-case class PackageSource(pkg : Identifier, generators : Iterable[Identifier], generatorSource : Identifier => Task[GeneratorSource])
+case class PackageSource(pkg : List[Identifier], generators : Iterable[Identifier], generatorSource : Identifier => Task[GeneratorSource])
