@@ -1,6 +1,7 @@
 package untemplate
 
 import scala.collection.*
+import scala.util.matching.Regex.Match
 
 class UntemplateException(msg : String, cause : Throwable = null) extends Exception(msg, cause)
 class NonuniqueIdentifier(msg : String, cause : Throwable = null) extends UntemplateException(msg, cause)
@@ -27,13 +28,13 @@ val UnitIdentifer = toIdentifier("Unit")
 
 opaque type GeneratorSource = Vector[String]
 opaque type GeneratorScala  = String
-opaque type Transpiler      = Function2[Identifier, GeneratorSource,GeneratorScala]
 
-type Generator[-A] = Function1[A,String]
 
+private def toGeneratorScala( text : String ) : GeneratorScala = text
+
+type Transpiler       = Function3[List[Identifier], Identifier, GeneratorSource, GeneratorScala]
+type Generator[-A]    = Function1[A,String]
 type BlockPrinter[-A] = Function2[A,Scratchpad,String]
-
-val Suffix = "untemplate"
 
 // these are just examples
 // val HeaderDelimeter    = "~[]~()>"
@@ -58,15 +59,35 @@ private val AnchoredHeaderDelimeterRegex = ("""^"""+ UnanchoredHeaderDelimeterRe
 private val EmbeddedExpressionRegex = """\<\((.+?)\)\>""".r
 
 private val IndentIncreasePointRegex ="""(?:^|([\r\n]+))""".r
+private val IndentDecreaseRegex ="""(?:^( *)|([\r\n]+ *)""".r
+
 
 private def nullToBlank(s : String) = if s == null then "" else s
 
-private def increaseIndent( spaces : Int, block : String ) =
-  val indent = " " * spaces
-  IndentIncreasePointRegex.replaceAllIn(block, m => nullToBlank(m.group(1)) + indent)
+private def increaseIndent( spaces : Int )( block : String ) =
+  if (spaces > 0)
+    val indent = " " * spaces
+    IndentIncreasePointRegex.replaceAllIn(block, m => nullToBlank(m.group(1)) + indent)
+  else
+    block
 
-private val DotSuffix    = "." + Suffix
-private val DotSuffixLen = DotSuffix.length
+private def notNullOrElse[T]( target : T, replacement : T) =
+  if target == null then target else replacement
+
+private def decreaseIndent( spaces : Int )( block : String ) =
+  def replace( m : Match ) =
+    val matched = notNullOrElse( m.group(1), notNullOrElse( m.group(2), "" ) )
+    val endspaces = matched.dropWhile(c => c == '\r' || c == '\n').length
+    val truncate = math.min(endspaces,spaces)
+    matched.substring(0, matched.length-truncate)
+
+  if (spaces > 0)
+    IndentDecreaseRegex.replaceAllIn(block, m => replace(m))
+  else
+    block
+
+private val ii = increaseIndent
+private val di = decreaseIndent
 
 private def asGeneratorSource(vs : Vector[String]) : GeneratorSource = vs
 //private def lines(ts : GeneratorSource) : Vector[String] = ts

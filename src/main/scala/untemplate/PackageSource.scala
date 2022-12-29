@@ -7,6 +7,10 @@ import java.nio.file.{Files,Path}
 import zio.*
 
 object PackageSource:
+  private val Suffix = "untemplate"
+  private val DotSuffix    = "." + Suffix
+  private val DotSuffixLen = DotSuffix.length
+
   def fromDirectory( dirPath : Path, basePath : Option[Path] = None, codec : Codec = Codec.UTF8 ) : Task[PackageSource] =
     ZIO.attemptBlocking {
       val pkg =
@@ -23,7 +27,7 @@ object PackageSource:
       }
       val idUniques = idVec.distinct
       if (idVec.size != idUniques.size)
-        throw new NonuniqueIdentifier(s"""Directory '${dirName}' would generate duplicate generators: ${(idVec.diff(idUniques)).toSet.mkString(",")}""")
+        throw new NonuniqueIdentifier(s"""Directory '${dirPath}' would define duplicate generators: ${(idVec.diff(idUniques)).toSet.mkString(",")}""")
       val identifiersToPaths = Map(idVec.zip(untemplatePaths): _*)
       val generatorSource: Identifier => Task[GeneratorSource] =
         identifier => ZIO.attemptBlocking(asGeneratorSource(Files.readAllLines(identifiersToPaths(identifier), codec.charSet).asScala.toVector))

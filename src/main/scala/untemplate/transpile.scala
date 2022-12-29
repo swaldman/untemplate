@@ -1,22 +1,27 @@
 package untemplate
 
+import java.io.{Writer,StringWriter}
 import scala.collection.*
 import com.mchange.sc.v2.literal.StringLiteral.formatAsciiScalaStringLiteral
+import scala.jdk.StreamConverters.StreamHasToScala
 
-private val LineSep = Option(System.getProperty("line.separator")).getOrElse("\n")
+private val UnitIndent = 2
+
+private val K100 = 100 * 1024
+
+private val iid = ii(UnitIndent)
 
 private final case class TranspileData1(source : GeneratorSource, spaceNormalized : Vector[String], indentLevels : Vector[Int])
+private final case class TranspileData2(last : TranspileData1, metadataType : Option[String], textBlockInfos : Vector[TextBlockInfo])
+private final case class TranspileData3( last : TranspileData2, headerInfo : Option[HeaderInfo], nonheaderBlocks : Vector[ParseBlock] )
 
+private case class HeaderInfo(metadataTypeIdentifier : Identifier, headerBlock : ParseBlock.Code)
 private final case class TextBlockInfo(functionName : Option[String], startDelimeter : Option[Int], stopDelimeter : Option[Int])
-private final case class TranspileData2(last : TranspileData1, metadataType : Option[String], textBlockInfos : List[TextBlockInfo])
 
 private object ParseBlock:
   final case class Text( functionIdentifier : Option[Identifier], rawTextBlock : String) extends ParseBlock
   final case class Code( text : String, lastIndent : Int ) extends ParseBlock
 private sealed trait ParseBlock
-
-private case class HeaderInfo(metadataTypeIdentifier : Identifier, headerBlock : ParseBlock.Code)
-private final case class TranspileData3( last : TranspileData2, headerInfo : Option[HeaderInfo], nonheaderBlocks : List[ParseBlock] )
 
 private def prefixTabSpaceToSpaces(spacesPerTab : Int, line : String) : String =
   def tabspace(c : Char) = c == '\t' || c == ' '
@@ -29,15 +34,13 @@ private def prefixTabSpaceToSpaces(spacesPerTab : Int, line : String) : String =
   val spacified = tabs.getBytes(scala.io.Codec.UTF8.charSet).map(replace).mkString
   spacified + rest
 
-private val TabLength = 2
-
 private def untabAndCountSpaces( gs : GeneratorSource ) : TranspileData1 =
   val indents = Array[Int](gs.lines.length)
   val oldLines = gs.lines
   val newLines = mutable.Buffer.empty[String]
   for( i <- 0 until gs.lines.length )
     val oldLine = oldLines(i)
-    val untabbed = prefixTabSpaceToSpaces(TabLength, oldLine)
+    val untabbed = prefixTabSpaceToSpaces(UnitIndent, oldLine)
     val indent = untabbed.takeWhile(_ == ' ').length
     newLines.append(untabbed)
     indents(i) = indent
@@ -102,7 +105,7 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
   val metadataType : Option[String] = headerTuple.flatMap { case (i, ldHeader) => ldHeader.metadataType }
 
   if parseTuples.nonEmpty then
-    val textBlockInfos : mutable.Buffer[TextBlockInfo] = mutable.Buffer.empty
+    val textBlockInfos = Vector.newBuilder[TextBlockInfo]
 
     val headTuple = parseTuples.head
     val (groupTuples, prependHead) =
@@ -113,7 +116,7 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
           throw new AssertionError("There should be no LineDelimter.Header values in parseTuples.")
       }
     if prependHead then
-      textBlockInfos.append(TextBlockInfo(None,None,Some(headTuple._1)))
+      textBlockInfos.addOne(TextBlockInfo(None,None,Some(headTuple(0))))
     groupTuples.grouped(2).foreach { minimap =>
       val l = minimap.toList
       val (start, functionName) =
@@ -123,13 +126,13 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
             throw new AssertionError(s"Expected tuple of (Int,LineDelimeter.Start), found (${a},${b})")
         }
       val end =
-        if (l.tail.nonEmpty) Some(l.tail.head._1)
+        if (l.tail.nonEmpty) Some(l.tail.head(0))
         else None
-      textBlockInfos.append(TextBlockInfo(functionName,Some(start),end))
+      textBlockInfos.addOne(TextBlockInfo(functionName,Some(start),end))
     }
-    TranspileData2( td1, metadataType, textBlockInfos.toList )
+    TranspileData2( td1, metadataType, textBlockInfos.result() )
   else
-    TranspileData2( td1, None, Nil )
+    TranspileData2( td1, None, Vector.empty )
 
 private def parseBlockTextFromInfo( unmodifiedLines : Vector[String], info : TextBlockInfo ) =
   val text = (info.startDelimeter, info.stopDelimeter) match
@@ -154,7 +157,7 @@ private def collectBlocks( td2 : TranspileData2 ) : TranspileData3 =
 
   val infos = td2.textBlockInfos
   var lastInfo : Option[TextBlockInfo] = None
-  val blocksBuilder = mutable.Buffer.empty[ParseBlock]
+  val blocksBuilder = Vector.newBuilder[ParseBlock]
   infos.foreach { info =>
     val mbPriorCodeBlock =
       (lastInfo.flatMap(_.stopDelimeter), info.startDelimeter) match
@@ -166,19 +169,19 @@ private def collectBlocks( td2 : TranspileData2 ) : TranspileData3 =
     def registerCodeBlock( codeBlock : ParseBlock.Code ) =
       (metadataTypeIdentifier, headerBlock) match
         case (Some(_), None) => headerBlock = Some(codeBlock)
-        case _               => blocksBuilder.append(codeBlock)
+        case _               => blocksBuilder.addOne(codeBlock)
 
     mbPriorCodeBlock.foreach(registerCodeBlock)
-    blocksBuilder.append(parseBlockTextFromInfo(unmodifiedLines, info))
+    blocksBuilder.addOne(parseBlockTextFromInfo(unmodifiedLines, info))
     lastInfo = Some(info)
   }
   val mbLastCodeBlock =
     lastInfo.flatMap( _.stopDelimeter ).map { before =>
       ParseBlock.Code(normalizedLines.slice(before+1,normalizedLines.length).mkString(LineSep), indents.last )
     }
-  mbLastCodeBlock.foreach(blocksBuilder.append)
+  mbLastCodeBlock.foreach(blocksBuilder.addOne)
 
-  val nonheaderBlocks = blocksBuilder.toList
+  val nonheaderBlocks = blocksBuilder.result()
   val mbHeaderInfo =
     for {
       id     <- metadataTypeIdentifier
@@ -188,66 +191,127 @@ private def collectBlocks( td2 : TranspileData2 ) : TranspileData3 =
 
   TranspileData3( td2, mbHeaderInfo : Option[HeaderInfo], nonheaderBlocks )
 
-def textBlockToSourceConcatenatedLiteralsAndExpressions( textBlock : String ) : String =
-  val sb = new StringBuilder(textBlock.length * 2)
-  val mi = EmbeddedExpressionRegex.findAllIn(textBlock)
+private def rawTextToSourceConcatenatedLiteralsAndExpressions( text : String ) : String =
+  val sb = new StringBuilder(text.length * 2)
+  val mi = EmbeddedExpressionRegex.findAllIn(text)
   var nextStart = 0
   while mi.hasNext do
     mi.next()
     val nextEnd = mi.start
     val expression = mi.group(1)
-    sb.append(formatAsciiScalaStringLiteral(textBlock.substring(nextStart, nextEnd)))
+    sb.append(formatAsciiScalaStringLiteral(text.substring(nextStart, nextEnd)))
     sb.append(" + ")
     sb.append( expression )
     sb.append(" +")
     sb.append(LineSep)
     nextStart = mi.end
-  sb.append(formatAsciiScalaStringLiteral(textBlock.substring(nextStart)))
+  sb.append(formatAsciiScalaStringLiteral(text.substring(nextStart)))
   sb.toString
 
-def textBlockToBlockPrinter( metadataType : Identifier, innerIndent : Int, textBlock : String ) : String =
+private def rawTextToBlockPrinter( metadataType : Identifier, innerIndent : Int, text : String ) : String =
   val spaces = " " * innerIndent
-  val stringExpression = textBlockToSourceConcatenatedLiteralsAndExpressions( textBlock )
+  val stringExpression = rawTextToSourceConcatenatedLiteralsAndExpressions( text )
   s"""|new Function2[${metadataType},Scratchpad,String]:
       |${spaces}def apply( metadata : ${metadataType}, scratchpad : Scratchpad ) : String =
-      |${increaseIndent(innerIndent*2,stringExpression)}""".stripMargin
+      |${ii(innerIndent*2)(stringExpression)}""".stripMargin
+
+private def rawTextToBlockPrinter( metadataType : Identifier, text : String ) : String = rawTextToBlockPrinter(metadataType, UnitIndent, text)
 
 private final case class PartitionedHeaderBlock(importsText : String, otherHeaderText : String, otherLastIndent : Int)
 
 private def partitionHeaderBlock( text : String ) : PartitionedHeaderBlock =
-  val linesTuple = text.lines.partition( _.trim.startsWith("import ") )
-  val importsText = linesTuple._1.map( _.trim ).mkString(LineSep)
-  val otherHeaderText = linesTuple._2.mkString(LineSep)
-  val otherLastIndent = linesTuple._2.last.takeWhile(_ == ' ').length
+  val linesTuple = text.lines.toScala(List).partition( _.trim.startsWith("import ") )
+  val importsText = linesTuple(0).map( _.trim ).mkString(LineSep)
+  val otherHeaderText = linesTuple(1).mkString(LineSep)
+  val otherLastIndent = linesTuple(1).last.takeWhile(_ == ' ').length
   PartitionedHeaderBlock(importsText, otherHeaderText, otherLastIndent)
 
-private def transpileToWriter(pkg : List[Identifier], generator : Identifier, src : GeneratorSource, dest : Writer) : Unit =
+extension (w : Writer)
+  def writeln(s: String) : Unit =
+    w.write(s)
+    w.write(LineSep)
+  def writeln() : Unit = w.write(LineSep)
+  def writeln(indentLevel: Int)(s: String) : Unit = writeln(ii(indentLevel * UnitIndent)(s))
+
+private def transpileToWriter(pkg : List[Identifier], generatorName : Identifier, src : GeneratorSource, w : Writer) : Unit =
   val td1 = untabAndCountSpaces( src )
   val td2 = basicParse( td1 )
   val td3 = collectBlocks( td2 )
-  val textBlocks = td3.nonheaderBlocks.collect { case b : ParseBlock.Text => b }
   val (metadataType, mbPartitionedHeaderBlock) =
     td3.headerInfo match
       case Some( HeaderInfo( metadataType, headerBlock ) ) => (metadataType, Some(partitionHeaderBlock(headerBlock.text)))
       case None                                            => (UnitIdentifer, None)
+  val metadataVarName = toIdentifier("metadata") // TODO: add a place for this in header delimeter, and extract like metadata type
 
-  def writeln( s : String ) =
-    dest.write(s)
-    dest.write(LineSep)
+  val textBlocks = td3.nonheaderBlocks.collect { case b : ParseBlock.Text => b }
 
-  def writeln() = dest.write(LineSep)
+  val helperName = toIdentifier(s"Helper_${generatorName}")
 
-  val helperName = s"Helper_${generator}"
-
-  writeln(s"""package ${pkg.mkString(".")}""")
-  writeln()
+  w.writeln(0)(s"""package ${pkg.mkString(".")}""")
+  w.writeln()
   mbPartitionedHeaderBlock.foreach { phb =>
-    writeln(phb.importsText)
+    w.writeln(0)(phb.importsText)
   }
-  writeln()
-  writeln(s"private object ${helperName}):")
+  w.writeln()
+  w.writeln(0)(s"private object ${helperName}):")
+  val blockPrinterTups =
+    for (i <- 0 until textBlocks.length) yield (s"BP${i}", textBlocks(i).functionIdentifier, rawTextToBlockPrinter( metadataType, textBlocks(i).rawTextBlock ))
+  blockPrinterTups.foreach { tup =>
+    w.writeln(1)(s"private val ${tup(0)} = ${tup(2)}" )
+  }
+  w.writeln()
+  val allBPsStr =  blockPrinterTups.map(tup => tup(0)).mkString(", ")
+  w.writeln( indentLevel = 1 )(s"val BlockPrinters = Vector( $allBPsStr )")
+  w.writeln()
+  blockPrinterTups.foreach { tup =>
+    w.writeln(1)(s"val ${tup(1)} = ${tup(0)}")
+  }
+  w.writeln(0)(s"end ${helperName}")
+  w.writeln()
+  w.writeln(0)(s"def ${generatorName}(${metadataVarName} : ${metadataType})")
+  w.writeln(1)(generatorBody(td3, metadataVarName, helperName, mbPartitionedHeaderBlock))
+  w.writeln(0)(s"end ${generatorName}")
+  w.writeln()
 
+private def generatorBody( td3 : TranspileData3, metadataVarName : Identifier, helperName : Identifier, mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock] ) : String =
+  val w = new StringWriter(K100) // XXX: Hardcoded initial capacity
+  var lastIndentSpaces = 0
 
-  mbHeaderBlockTriple.foreach
+  def lastIndentLevel =
+    lastIndentSpaces / UnitIndent + (if (lastIndentSpaces % UnitIndent) == 0 then 0 else 1)
 
-  var lastIndent = 0
+  // setup author resources
+  w.writeln("import untemplate.*")
+  w.writeln(s"import ${helperName}.*")
+  w.writeln("import java.io.{Writer,StringWriter}")
+  w.writeln()
+  w.writeln("val scratchpad : Scratchpad = newScratchpad()")
+  w.writeln(s"val w = new StringWriter(${K100}) //XXX: Hardcoded initial capacity")
+
+  // header first
+  mbPartitionedHeaderBlock.foreach { phb =>
+    w.writeln( phb.otherHeaderText )
+    lastIndentSpaces = phb.otherLastIndent
+  }
+
+  var textBlockCount = 0
+  td3.nonheaderBlocks.foreach { block =>
+    block match
+      case cblock : ParseBlock.Code =>
+        w.writeln(0)(cblock.text)
+        w.writeln()
+        lastIndentSpaces = cblock.lastIndent
+      case tblock : ParseBlock.Text =>
+        val argList = s"( ${metadataVarName}, scratchpad )"
+        val functionExpression = tblock.functionIdentifier.getOrElse(s"BlockPrinters(${textBlockCount})")
+        w.writeln(lastIndentLevel + 1)(s"w.write(${functionExpression}${argList})${LineSep}")
+        textBlockCount += 1
+  }
+  w.toString
+
+private def defaultTranspile( pkg : List[Identifier], generatorName : Identifier, src : GeneratorSource ) : GeneratorScala =
+  val w = new StringWriter(K100) // XXX: hardcoded initial buffer length, should we examine src?
+  transpileToWriter(pkg, generatorName, src , w)
+  toGeneratorScala(w.toString)
+
+val DefaultTranspiler : Transpiler = defaultTranspile
