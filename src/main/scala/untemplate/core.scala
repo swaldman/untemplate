@@ -24,22 +24,23 @@ def toIdentifier( unrestrictedName : String ) : Identifier =
   else
     transformed
 
-val UnitIdentifer = toIdentifier("Unit")
-
 opaque type GeneratorSource = Vector[String]
 opaque type GeneratorScala  = String
 
-
 private def toGeneratorScala( text : String ) : GeneratorScala = text
 
-type Transpiler       = Function3[List[Identifier], Identifier, GeneratorSource, GeneratorScala]
+object GeneratorExtras:
+  val empty = new GeneratorExtras(None, None, Vector.empty)
+case class GeneratorExtras( mbDefaultInputName : Option[Identifier], mbDefaultInputType : Option[Identifier], extraImports : Vector[String])
+
+type Transpiler       = Function4[List[Identifier], Identifier, GeneratorExtras, GeneratorSource, GeneratorScala]
 type Generator[-A]    = Function1[A,String]
 type BlockPrinter[-A] = Function2[A,mutable.Map[String,Any],String]
 
 val DefaultTranspiler : Transpiler = defaultTranspile
 
 // these are just examples
-// val HeaderDelimeter    = "~[]~()>"
+// val HeaderDelimeter    = "()[]~()>"
 
 // val TextStartDelimeter = "()>"
 // val TextEndDelimeter   = "<()"
@@ -54,7 +55,7 @@ private val UnanchoredTextEndDelimeterRegexString = """\<\(\)"""
 private val UnanchoredTextEndDelimeterRegex = UnanchoredTextEndDelimeterRegexString.r
 private val AnchoredTextEndDelimeterRegex = ("""^""" + UnanchoredTextEndDelimeterRegexString + """\s*$""").r
 
-private val UnanchoredHeaderDelimeterRegexString = """\~\[(.*?)\]\~\((.*?)\)\>"""
+private val UnanchoredHeaderDelimeterRegexString = """\((.*?)\)\[(.*?)\]\~\((.*?)\)\>"""
 private val UnanchoredHeaderDelimeterRegex = UnanchoredHeaderDelimeterRegexString.r
 private val AnchoredHeaderDelimeterRegex = ("""^"""+ UnanchoredHeaderDelimeterRegexString + """\s*$""").r
 

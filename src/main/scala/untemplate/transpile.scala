@@ -7,13 +7,20 @@ import scala.jdk.StreamConverters.StreamHasToScala
 
 import com.mchange.codegenutil.*
 
+// this code is extremely naive and inelegant.
+// There must be a more concise and prettier way.
+// Maybe someday
+
+private val UnitIdentifier              = toIdentifier("Unit")
+private val BackstopInputNameIdentifier = toIdentifier("input")
+
 private val K100 = 100 * 1024
 
 private final case class TranspileData1(source : GeneratorSource, spaceNormalized : Vector[String], indentLevels : Vector[Int])
-private final case class TranspileData2(last : TranspileData1, metadataType : Option[String], textBlockInfos : Vector[TextBlockInfo])
-private final case class TranspileData3( last : TranspileData2, headerInfo : Option[HeaderInfo], nonheaderBlocks : Vector[ParseBlock] )
+private final case class TranspileData2(last : TranspileData1, hasHeader : Boolean, mbInputName : Option[String], mbInputType : Option[String], textBlockInfos : Vector[TextBlockInfo])
+private final case class TranspileData3(last : TranspileData2, headerInfo : Option[HeaderInfo], nonheaderBlocks : Vector[ParseBlock])
 
-private case class HeaderInfo(metadataTypeIdentifier : Identifier, headerBlock : ParseBlock.Code)
+private case class HeaderInfo(mbInputName : Option[Identifier], mbInputTypeIdentifier : Option[Identifier], headerBlock : ParseBlock.Code)
 private final case class TextBlockInfo(functionName : Option[String], startDelimeter : Option[Int], stopDelimeter : Option[Int])
 
 private object ParseBlock:
@@ -45,9 +52,9 @@ private def untabAndCountSpaces( gs : GeneratorSource )(using ui : UnitIndent) :
   TranspileData1(gs, newLines.toVector, indents.toVector)
 
 private object LineDelimeter:
-  object Header:
-    def apply(str: String) : Header = if str == null || str.isEmpty then Header(None) else Header(Some(str))
-  case class Header(metadataType : Option[String]) extends LineDelimeter
+  // object Header:
+  //   def apply(str: String) : Header = if str == null || str.isEmpty then Header(None) else Header(Some(str))
+  case class Header(mbInputName : Option[String], mbInputType : Option[String]) extends LineDelimeter
   object Start:
     def apply(str : String) : Start = if str == null || str.isEmpty then Start(None) else Start(Some(str))
   case class Start(functionName : Option[String]) extends LineDelimeter
@@ -56,14 +63,14 @@ private sealed trait LineDelimeter
 
 private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
   var headerTuple : Option[Tuple2[Int,LineDelimeter.Header]] = None
-  val parseTuples : mutable.SortedMap[Int,LineDelimeter] = mutable.SortedMap.empty
+  val parseTuples : mutable.SortedMap[Int,LineDelimeter] = mutable.SortedMap.empty // empty only of there are no delimeters at all
 
-  for( i <- 0 until td1.indentLevels.length)
+  for( i <- 0 until td1.indentLevels.length) // indentLevels.length is also the line length
     if td1.indentLevels(i) == 0 then
       td1.source.lines(i) match {
-        case AnchoredHeaderDelimeterRegex(metadataType, functionName) =>
+        case AnchoredHeaderDelimeterRegex(inputName, inputType, functionName) =>
           if headerTuple == None then
-            headerTuple = Some(Tuple2(i, LineDelimeter.Header(metadataType)))
+            headerTuple = Some(Tuple2(i, LineDelimeter.Header(Option(inputName), Option(inputType))))
             parseTuples += Tuple2(i, LineDelimeter.Start(functionName))
           else
             throw new ParseException(s"Duplicate header delimeter at line ${i}")
@@ -78,11 +85,12 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
   headerTuple.foreach { case (line, ldh) =>
     if line != parseTuples.keys.head then
       throw new ParseException(
-        s"The first start tuple is at line ${parseTuples.keys.head}, but header boundary is at ${line}, should be identical." +
+        s"The first start tuple is at (zero-indexed) line ${parseTuples.keys.head}, but header boundary is at ${line}, should be identical." +
         "Perhaps there is a start delimeter above the header delimeter. That would be bad!"
       )
   }
 
+  // check correct alternation of types
   var lastSeen : LineDelimeter = null; // so sue me... purely an internal implementation detail
   parseTuples.foreach { case (i, delim) =>
     // println( s"Line: ${i+1}     delim: ${delim}" )
@@ -103,7 +111,13 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
   }
 
   // okay... apparently we have alternating sections. Let's build our output
-  val metadataType : Option[String] = headerTuple.flatMap { case (i, ldHeader) => ldHeader.metadataType }
+  val (mbInputName : Option[String], mbInputType : Option[String]) =
+    headerTuple match
+      case Some(tup) =>
+        val ldHeader = tup(1)
+        (ldHeader.mbInputName, ldHeader.mbInputType)
+      case None =>
+        (None, None)
 
   if parseTuples.nonEmpty then
     val textBlockInfos = Vector.newBuilder[TextBlockInfo]
@@ -131,9 +145,9 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
         else None
       textBlockInfos.addOne(TextBlockInfo(functionName,Some(start),end))
     }
-    TranspileData2( td1, metadataType, textBlockInfos.result() )
+    TranspileData2( td1, headerTuple.nonEmpty, mbInputName, mbInputType, textBlockInfos.result() )
   else
-    TranspileData2( td1, None, Vector.empty )
+    TranspileData2( td1, false, None, None, Vector.empty )
 
 private def parseBlockTextFromInfo( unmodifiedLines : Vector[String], info : TextBlockInfo ) =
   val text = (info.startDelimeter, info.stopDelimeter) match
@@ -145,7 +159,8 @@ private def parseBlockTextFromInfo( unmodifiedLines : Vector[String], info : Tex
   ParseBlock.Text(functionName, text)
 
 private def collectBlocks( td2 : TranspileData2 ) : TranspileData3 =
-  val metadataTypeIdentifier                = td2.metadataType.map( toIdentifier ) // if nonempty, we have to separate header
+  val mbInputNameIdentifier                 = td2.mbInputName.map( toIdentifier )
+  val mbInputTypeIdentifier                   = td2.mbInputType.map( toIdentifier )
   var headerBlock : Option[ParseBlock.Code] = None
 
   // for text, we take from unmodified GeneratorSource.
@@ -159,6 +174,12 @@ private def collectBlocks( td2 : TranspileData2 ) : TranspileData3 =
   val infos = td2.textBlockInfos
   var lastInfo : Option[TextBlockInfo] = None
   val blocksBuilder = Vector.newBuilder[ParseBlock]
+
+  def registerCodeBlock(codeBlock: ParseBlock.Code) =
+    (td2.hasHeader, headerBlock) match
+      case (true, None) => headerBlock = Some(codeBlock)
+      case _ => blocksBuilder.addOne(codeBlock)
+
   infos.foreach { info =>
     val mbPriorCodeBlock =
       (lastInfo.flatMap(_.stopDelimeter), info.startDelimeter) match
@@ -166,11 +187,6 @@ private def collectBlocks( td2 : TranspileData2 ) : TranspileData3 =
         case (None,         Some(until)) => Some(ParseBlock.Code(normalizedLines.slice(0, until).mkString(LineSep), 0))
         case (Some(before), None       ) => throw new AssertionError(s"Interior text blocks should have start delimteres! [prior: ${lastInfo}, current: ${info}]")
         case (None,         None       ) => None // this is the first info, no start means we begin inside text
-
-    def registerCodeBlock( codeBlock : ParseBlock.Code ) =
-      (metadataTypeIdentifier, headerBlock) match
-        case (Some(_), None) => headerBlock = Some(codeBlock)
-        case _               => blocksBuilder.addOne(codeBlock)
 
     mbPriorCodeBlock.foreach(registerCodeBlock)
     blocksBuilder.addOne(parseBlockTextFromInfo(unmodifiedLines, info))
@@ -184,11 +200,7 @@ private def collectBlocks( td2 : TranspileData2 ) : TranspileData3 =
 
   val nonheaderBlocks = blocksBuilder.result()
   val mbHeaderInfo =
-    for {
-      id     <- metadataTypeIdentifier
-      hblock <- headerBlock
-    }
-    yield HeaderInfo(id, hblock)
+    headerBlock.map(hblock => HeaderInfo(mbInputNameIdentifier, mbInputTypeIdentifier, hblock))
 
   TranspileData3( td2, mbHeaderInfo : Option[HeaderInfo], nonheaderBlocks )
 
@@ -209,14 +221,14 @@ private def rawTextToSourceConcatenatedLiteralsAndExpressions( text : String ) :
   sb.append(formatAsciiScalaStringLiteral(text.substring(nextStart) + LineSep)) //we removed the separators parsing into lines, better put 'em back!
   sb.toString
 
-private def rawTextToBlockPrinter( metadataType : Identifier, innerIndent : Int, text : String ) : String =
+private def rawTextToBlockPrinter( inputName : Identifier, inputType : Identifier, innerIndent : Int, text : String ) : String =
   val spaces = " " * innerIndent
   val stringExpression = rawTextToSourceConcatenatedLiteralsAndExpressions( text )
-  s"""|new Function2[${metadataType},mutable.Map[String,Any],String]:
-      |${spaces}def apply( metadata : ${metadataType}, scratchpad : mutable.Map[String,Any] ) : String =
+  s"""|new Function2[${inputType},mutable.Map[String,Any],String]:
+      |${spaces}def apply( ${inputName} : ${inputType}, scratchpad : mutable.Map[String,Any] ) : String =
       |${increaseIndent(innerIndent*2)(stringExpression)}""".stripMargin
 
-private def rawTextToBlockPrinter( metadataType : Identifier, text : String )(using ui : UnitIndent) : String = rawTextToBlockPrinter(metadataType, ui.toInt, text)
+private def rawTextToBlockPrinter( inputName : Identifier, inputType : Identifier, text : String )(using ui : UnitIndent) : String = rawTextToBlockPrinter(inputName, inputType, ui.toInt, text)
 
 private final case class PartitionedHeaderBlock(importsText : String, otherHeaderText : String, otherLastIndent : Int)
 
@@ -227,15 +239,16 @@ private def partitionHeaderBlock( text : String ) : PartitionedHeaderBlock =
   val otherLastIndent = linesTuple(1).lastOption.fold( 0 )( _.takeWhile(_ == ' ').length )
   PartitionedHeaderBlock(importsText, otherHeaderText, otherLastIndent)
 
-private def transpileToWriter(pkg : List[Identifier], generatorName : Identifier, src : GeneratorSource, w : Writer) : Unit =
+private def transpileToWriter(pkg : List[Identifier], generatorName : Identifier, generatorExtras : GeneratorExtras, src : GeneratorSource, w : Writer) : Unit =
   val td1 = untabAndCountSpaces( src )
   val td2 = basicParse( td1 )
   val td3 = collectBlocks( td2 )
-  val (metadataType, mbPartitionedHeaderBlock) =
+  val (mbInputName, mbInputType, mbPartitionedHeaderBlock) =
     td3.headerInfo match
-      case Some( HeaderInfo( metadataType, headerBlock ) ) => (metadataType, Some(partitionHeaderBlock(headerBlock.text)))
-      case None                                            => (UnitIdentifer, None)
-  val metadataVarName = toIdentifier("metadata") // TODO: add a place for this in header delimeter, and extract like metadata type
+      case Some( HeaderInfo( mbInputName, mbInputType, headerBlock ) ) => (mbInputName, mbInputType, Some(partitionHeaderBlock(headerBlock.text)))
+      case None                                                        => (None, None, None)
+  val inputVarName : Identifier = (mbInputName orElse generatorExtras.mbDefaultInputName).getOrElse( BackstopInputNameIdentifier )
+  val inputType    : Identifier = (mbInputType orElse generatorExtras.mbDefaultInputType).getOrElse( UnitIdentifier )
 
   val textBlocks = td3.nonheaderBlocks.collect { case b : ParseBlock.Text => b }
 
@@ -246,6 +259,16 @@ private def transpileToWriter(pkg : List[Identifier], generatorName : Identifier
   w.writeln("import java.io.{Writer,StringWriter}")
   w.writeln("import scala.collection.*")
   w.writeln()
+  w.writeln("// start generator-extras imports")
+  generatorExtras.extraImports.foreach { line =>
+    val tl = line.trim
+    if tl.startsWith("import") then
+      w.writeln(tl)
+    else
+      w.writeln(s"import ${tl}")
+  }
+  w.writeln("// end generator-extras imports")
+  w.writeln()
   w.writeln("// start author-defined imports")
   mbPartitionedHeaderBlock.foreach { phb =>
     w.writeln(phb.importsText)
@@ -254,7 +277,7 @@ private def transpileToWriter(pkg : List[Identifier], generatorName : Identifier
   w.writeln()
   w.writeln(0)(s"private object ${helperName}:")
   val blockPrinterTups =
-    for (i <- 0 until textBlocks.length) yield (s"BP${i}", textBlocks(i).functionIdentifier, rawTextToBlockPrinter( metadataType, textBlocks(i).rawTextBlock ))
+    for (i <- 0 until textBlocks.length) yield (s"BP${i}", textBlocks(i).functionIdentifier, rawTextToBlockPrinter( inputVarName, inputType, textBlocks(i).rawTextBlock ))
   blockPrinterTups.foreach { tup =>
     w.writeln(1)(s"private val ${tup(0)} = ${tup(2)}" )
   }
@@ -267,12 +290,12 @@ private def transpileToWriter(pkg : List[Identifier], generatorName : Identifier
   }
   w.writeln(0)(s"end ${helperName}")
   w.writeln()
-  w.writeln(0)(s"def ${generatorName}(${metadataVarName} : ${metadataType}) : String =")
-  w.writeln(1)(generatorBody(td3, metadataVarName, helperName, mbPartitionedHeaderBlock))
+  w.writeln(0)(s"def ${generatorName}(${inputVarName} : ${inputType}) : String =")
+  w.writeln(1)(generatorBody(td3, inputVarName, helperName, mbPartitionedHeaderBlock))
   w.writeln(0)(s"end ${generatorName}")
   w.writeln()
 
-private def generatorBody( td3 : TranspileData3, metadataVarName : Identifier, helperName : Identifier, mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock] )(using ui : UnitIndent) : String =
+private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, helperName : Identifier, mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock] )(using ui : UnitIndent) : String =
   val w = new StringWriter(K100) // XXX: Hardcoded initial capacity
   var lastIndentSpaces = 0
 
@@ -306,7 +329,7 @@ private def generatorBody( td3 : TranspileData3, metadataVarName : Identifier, h
         w.writeln(0)(cblock.text)
         lastIndentSpaces = cblock.lastIndent
       case tblock : ParseBlock.Text =>
-        val argList = s"( ${metadataVarName}, scratchpad )"
+        val argList = s"( ${inputVarName}, scratchpad )"
         val functionExpression = tblock.functionIdentifier.getOrElse(s"BlockPrinters(${textBlockCount})")
         w.writeln(lastIndentLevel + 1)(s"w.write(${functionExpression}${argList})${LineSep}")
         textBlockCount += 1
@@ -314,8 +337,8 @@ private def generatorBody( td3 : TranspileData3, metadataVarName : Identifier, h
   w.writeln(0)("w.toString")
   w.toString
 
-private def defaultTranspile( pkg : List[Identifier], generatorName : Identifier, src : GeneratorSource ) : GeneratorScala =
+private def defaultTranspile( pkg : List[Identifier], generatorName : Identifier, generatorExtras : GeneratorExtras, src : GeneratorSource ) : GeneratorScala =
   val w = new StringWriter(K100) // XXX: hardcoded initial buffer length, should we examine src?
-  transpileToWriter(pkg, generatorName, src , w)
+  transpileToWriter(pkg, generatorName, generatorExtras, src, w)
   toGeneratorScala(w.toString)
 

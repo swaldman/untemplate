@@ -2,10 +2,7 @@
 
 * Lint pass
     - mixed tab/space prefixes
-    - unescaped block delimters not first character
+    - unescaped block delimiters not first character
+    - first-character block delimeters with non-spaces on rest-of-line
 * Permit escaped delimeters
 * Reorganize regexes
-* Extra parameters
-  * Default input name
-  * Default input type
-  * Extra imports
