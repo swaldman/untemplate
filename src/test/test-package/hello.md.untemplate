@@ -1,4 +1,11 @@
-# Hello
+import java.io.IOException
 
+~[String]~(start-block)>
+# Hello <(metadata)>
+
+<()
+
+for (i <- 1 to 3)
+(main-block)>
 This is a hello world.
-
+<()

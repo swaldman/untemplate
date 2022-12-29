@@ -18,7 +18,7 @@ object PackageSource:
         val pieces = rel.iterator().asScala.toList
         pieces.map( piece => toIdentifier(piece.toString) )
       val allFilePaths = Files.list(dirPath).toScala(Vector)
-      val untemplatePaths = allFilePaths.filter(_.toString.endsWith(DotSuffix))
+      val untemplatePaths = allFilePaths.filter(path => Files.isRegularFile(path) && path.toString.endsWith(DotSuffix))
       val idVec = untemplatePaths.map {
         path =>
           val fname = path.getFileName.toString
@@ -34,4 +34,4 @@ object PackageSource:
       PackageSource(pkg, idVec, generatorSource)
     }
 
-case class PackageSource(pkg : List[Identifier], generators : Iterable[Identifier], generatorSource : Identifier => Task[GeneratorSource])
+case class PackageSource(pkg : List[Identifier], generators : Vector[Identifier], generatorSource : Identifier => Task[GeneratorSource])

@@ -36,6 +36,8 @@ type Transpiler       = Function3[List[Identifier], Identifier, GeneratorSource,
 type Generator[-A]    = Function1[A,String]
 type BlockPrinter[-A] = Function2[A,Scratchpad,String]
 
+val DefaultTranspiler : Transpiler = defaultTranspile
+
 // these are just examples
 // val HeaderDelimeter    = "~[]~()>"
 
@@ -59,7 +61,7 @@ private val AnchoredHeaderDelimeterRegex = ("""^"""+ UnanchoredHeaderDelimeterRe
 private val EmbeddedExpressionRegex = """\<\((.+?)\)\>""".r
 
 private val IndentIncreasePointRegex ="""(?:^|([\r\n]+))""".r
-private val IndentDecreaseRegex ="""(?:^( *)|([\r\n]+ *)""".r
+private val IndentDecreaseRegex ="""(?:^( *)|([\r\n]+ *))""".r
 
 
 private def nullToBlank(s : String) = if s == null then "" else s
