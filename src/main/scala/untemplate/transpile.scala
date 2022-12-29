@@ -5,13 +5,9 @@ import scala.collection.*
 import com.mchange.sc.v2.literal.StringLiteral.formatAsciiScalaStringLiteral
 import scala.jdk.StreamConverters.StreamHasToScala
 
-private val UnitIndent = 2
-
-val LineSep = Option(System.getProperty("line.separator")).getOrElse("\n")
+import com.mchange.codegenutil.*
 
 private val K100 = 100 * 1024
-
-private val iid = ii(UnitIndent)
 
 private final case class TranspileData1(source : GeneratorSource, spaceNormalized : Vector[String], indentLevels : Vector[Int])
 private final case class TranspileData2(last : TranspileData1, metadataType : Option[String], textBlockInfos : Vector[TextBlockInfo])
@@ -36,13 +32,13 @@ private def prefixTabSpaceToSpaces(spacesPerTab : Int, line : String) : String =
   val spacified = tabs.getBytes(scala.io.Codec.UTF8.charSet).map(replace).mkString
   spacified + rest
 
-private def untabAndCountSpaces( gs : GeneratorSource ) : TranspileData1 =
+private def untabAndCountSpaces( gs : GeneratorSource )(using ui : UnitIndent) : TranspileData1 =
   val indents = Array.ofDim[Int](gs.lines.length)
   val oldLines = gs.lines
   val newLines = mutable.Buffer.empty[String]
   for( i <- 0 until gs.lines.length )
     val oldLine = oldLines(i)
-    val untabbed = prefixTabSpaceToSpaces(UnitIndent, oldLine)
+    val untabbed = prefixTabSpaceToSpaces(ui.toInt, oldLine)
     val indent = untabbed.takeWhile(_ == ' ').length
     newLines.append(untabbed)
     indents(i) = indent
@@ -218,9 +214,9 @@ private def rawTextToBlockPrinter( metadataType : Identifier, innerIndent : Int,
   val stringExpression = rawTextToSourceConcatenatedLiteralsAndExpressions( text )
   s"""|new Function2[${metadataType},mutable.Map[String,Any],String]:
       |${spaces}def apply( metadata : ${metadataType}, scratchpad : mutable.Map[String,Any] ) : String =
-      |${ii(innerIndent*2)(stringExpression)}""".stripMargin
+      |${increaseIndent(innerIndent*2)(stringExpression)}""".stripMargin
 
-private def rawTextToBlockPrinter( metadataType : Identifier, text : String ) : String = rawTextToBlockPrinter(metadataType, UnitIndent, text)
+private def rawTextToBlockPrinter( metadataType : Identifier, text : String )(using ui : UnitIndent) : String = rawTextToBlockPrinter(metadataType, ui.toInt, text)
 
 private final case class PartitionedHeaderBlock(importsText : String, otherHeaderText : String, otherLastIndent : Int)
 
@@ -230,13 +226,6 @@ private def partitionHeaderBlock( text : String ) : PartitionedHeaderBlock =
   val otherHeaderText = linesTuple(1).mkString(LineSep)
   val otherLastIndent = linesTuple(1).lastOption.fold( 0 )( _.takeWhile(_ == ' ').length )
   PartitionedHeaderBlock(importsText, otherHeaderText, otherLastIndent)
-
-extension (w : Writer)
-  def writeln(s: String) : Unit =
-    w.write(s)
-    w.write(LineSep)
-  def writeln() : Unit = w.write(LineSep)
-  def writeln(indentLevel: Int)(s: String) : Unit = writeln(ii(indentLevel * UnitIndent)(s))
 
 private def transpileToWriter(pkg : List[Identifier], generatorName : Identifier, src : GeneratorSource, w : Writer) : Unit =
   val td1 = untabAndCountSpaces( src )
@@ -283,12 +272,12 @@ private def transpileToWriter(pkg : List[Identifier], generatorName : Identifier
   w.writeln(0)(s"end ${generatorName}")
   w.writeln()
 
-private def generatorBody( td3 : TranspileData3, metadataVarName : Identifier, helperName : Identifier, mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock] ) : String =
+private def generatorBody( td3 : TranspileData3, metadataVarName : Identifier, helperName : Identifier, mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock] )(using ui : UnitIndent) : String =
   val w = new StringWriter(K100) // XXX: Hardcoded initial capacity
   var lastIndentSpaces = 0
 
   def lastIndentLevel =
-    lastIndentSpaces / UnitIndent + (if (lastIndentSpaces % UnitIndent) == 0 then 0 else 1)
+    lastIndentSpaces / ui.toInt + (if (lastIndentSpaces % ui.toInt) == 0 then 0 else 1)
 
   // setup author resources
   w.writeln(s"import ${helperName}.*")
