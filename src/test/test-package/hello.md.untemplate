@@ -6,6 +6,19 @@ import java.io.IOException
 <()
 
 for (i <- 1 to 3)
+
 (main-block)>
 This is a hello world.
+
 <()
+
+writer.write(start_block("Leon", scratchpad) + "\n")
+
+()>
+This is some more text.
+
+The next line is an escaped end delimeter. It should appear in the text.
+\<()
+This should be the last line of the text, because the next line is an unescaped end delimeter
+<()
+

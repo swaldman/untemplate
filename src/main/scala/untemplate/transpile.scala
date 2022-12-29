@@ -204,6 +204,9 @@ private def collectBlocks( td2 : TranspileData2 ) : TranspileData3 =
 
   TranspileData3( td2, mbHeaderInfo : Option[HeaderInfo], nonheaderBlocks )
 
+private def unescapeUntemplateDelimeters( s : String ) : String =
+  UnescapeRegexes.foldLeft(s)( (last, regex) => regex.replaceAllIn(last, m => { println(s"MATCH: ${m.group(0)}"); m.group(1) } ) )
+
 private def rawTextToSourceConcatenatedLiteralsAndExpressions( text : String ) : String =
   val sb = new StringBuilder(text.length * 2)
   val mi = EmbeddedExpressionRegex.findAllIn(text)
@@ -212,20 +215,24 @@ private def rawTextToSourceConcatenatedLiteralsAndExpressions( text : String ) :
     mi.next()
     val nextEnd = mi.start
     val expression = mi.group(1)
-    sb.append(formatAsciiScalaStringLiteral(text.substring(nextStart, nextEnd)))
+    val textBit = text.substring(nextStart, nextEnd)
+    val unescapedTextBit = unescapeUntemplateDelimeters(textBit)
+    sb.append(formatAsciiScalaStringLiteral(unescapedTextBit))
     sb.append(" + ")
     sb.append( expression )
     sb.append(" +")
     sb.append(LineSep)
     nextStart = mi.end
-  sb.append(formatAsciiScalaStringLiteral(text.substring(nextStart) + LineSep)) //we removed the separators parsing into lines, better put 'em back!
+  val lastTextBit = text.substring(nextStart)
+  val unescapedLastTextBit = unescapeUntemplateDelimeters(lastTextBit)
+  sb.append(formatAsciiScalaStringLiteral( unescapedLastTextBit + LineSep)) //we removed the separators parsing into lines, better put 'em back!
   sb.toString
 
 private def rawTextToBlockPrinter( inputName : Identifier, inputType : Identifier, innerIndent : Int, text : String ) : String =
   val spaces = " " * innerIndent
   val stringExpression = rawTextToSourceConcatenatedLiteralsAndExpressions( text )
   s"""|new Function2[${inputType},mutable.Map[String,Any],String]:
-      |${spaces}def apply( ${inputName} : ${inputType}, scratchpad : mutable.Map[String,Any] ) : String =
+      |${spaces}def apply( ${inputName} : ${inputType}, scratchpad : mutable.Map[String,Any]) : String =
       |${increaseIndent(innerIndent*2)(stringExpression)}""".stripMargin
 
 private def rawTextToBlockPrinter( inputName : Identifier, inputType : Identifier, text : String )(using ui : UnitIndent) : String = rawTextToBlockPrinter(inputName, inputType, ui.toInt, text)
@@ -310,7 +317,7 @@ private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, help
   w.writeln(1)("def check[T](key: String): Option[T] = s.get(key).map(_.asInstanceOf[T])")
   w.writeln()
   w.writeln("val scratchpad : mutable.Map[String,Any] = mutable.Map.empty[String,Any]")
-  w.writeln(s"val w = new StringWriter(${K100}) //XXX: Hardcoded initial capacity")
+  w.writeln(s"val writer = new StringWriter(${K100}) //XXX: Hardcoded initial capacity")
   w.writeln()
 
   // header first
@@ -331,10 +338,10 @@ private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, help
       case tblock : ParseBlock.Text =>
         val argList = s"( ${inputVarName}, scratchpad )"
         val functionExpression = tblock.functionIdentifier.getOrElse(s"BlockPrinters(${textBlockCount})")
-        w.writeln(lastIndentLevel + 1)(s"w.write(${functionExpression}${argList})${LineSep}")
+        w.writeln(lastIndentLevel + 1)(s"writer.write(${functionExpression}${argList})${LineSep}")
         textBlockCount += 1
   }
-  w.writeln(0)("w.toString")
+  w.writeln(0)("writer.toString")
   w.toString
 
 private def defaultTranspile( pkg : List[Identifier], generatorName : Identifier, generatorExtras : GeneratorExtras, src : GeneratorSource ) : GeneratorScala =
