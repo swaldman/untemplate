@@ -205,7 +205,7 @@ private def collectBlocks( td2 : TranspileData2 ) : TranspileData3 =
   TranspileData3( td2, mbHeaderInfo : Option[HeaderInfo], nonheaderBlocks )
 
 private def unescapeUntemplateDelimeters( s : String ) : String =
-  UnescapeRegexes.foldLeft(s)( (last, regex) => regex.replaceAllIn(last, m => { println(s"MATCH: ${m.group(0)}"); m.group(1) } ) )
+  UnescapeRegexes.foldLeft(s)( (last, regex) => regex.replaceAllIn(last, m => m.group(1) ) )
 
 private def rawTextToSourceConcatenatedLiteralsAndExpressions( text : String ) : String =
   val sb = new StringBuilder(text.length * 2)
@@ -261,7 +261,9 @@ private def transpileToWriter(pkg : List[Identifier], generatorName : Identifier
 
   val helperName = toIdentifier(s"Helper_${generatorName}")
 
-  w.writeln(s"""package ${pkg.mkString(".")}""")
+  if pkg.nonEmpty then
+    w.writeln(s"""package ${pkg.mkString(".")}""")
+
   w.writeln()
   w.writeln("import java.io.{Writer,StringWriter}")
   w.writeln("import scala.collection.*")
