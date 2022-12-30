@@ -5,7 +5,7 @@ import scopt.OParser
 import zio.*
 
 object Main extends zio.ZIOAppDefault {
-  case class Opts(source: Path = Path.of("."), dest: Path = null)
+  case class Opts(source: Path = Path.of("."), dest: Path = null, extras: GeneratorExtras = GeneratorExtras.empty)
 
   val builder = OParser.builder[Opts]
   val parser1 = {
@@ -14,15 +14,27 @@ object Main extends zio.ZIOAppDefault {
       programName("untemplate"),
       head("untemplate", "0.0.1"),
       opt[String]('s', "source")
-        .action((str, c) => c.copy(source = Path.of(str)))
+        .action((str, opts) => opts.copy(source = Path.of(str)))
         .valueName("<dir>")
         .optional()
         .text("path to untemplate source base directory"),
       opt[String]('d', "dest")
         .required()
-        .action((str, c) => c.copy(dest = Path.of(str)))
+        .action((str, opts) => opts.copy(dest = Path.of(str)))
         .valueName("<dir>")
-        .text("path to destination directory for packages of generated scala source code")
+        .text("path to destination directory for packages of generated scala source code"),
+      opt[String]("default-input-name")
+        .action( (str, opts) => opts.copy(extras = opts.extras.copy(mbDefaultInputName = Some(toIdentifier(str)))) )
+        .valueName("<name>")
+        .text("name for input identifier, if not specified within the template"),
+      opt[String]("default-input-type")
+        .action( (str, opts) => opts.copy(extras = opts.extras.copy(mbDefaultInputType = Some(toIdentifier(str)))) )
+        .valueName("<type-name>")
+        .text("name for input type, fully-qualified or resolvable via imports supplied here or built into the template"),
+      opt[Seq[String]]("extra-imports")
+        .action( (extras, opts) => opts.copy(extras = opts.extras.copy(extraImports = extras.toVector)) )
+        .valueName("<import1>,<import2>,<import3>,...")
+        .text("extra imports that should be included by default at the top level of templates")
     )
   }
 
@@ -41,12 +53,12 @@ object Main extends zio.ZIOAppDefault {
     ZIO.attemptBlocking( pkgSources.map( _.pkg ).foreach(createPackageDir) )
 
 
-  def genScalaSources(dest : Path, pkgSources : Set[PackageSource]) : ZIO[Any, Throwable, Unit] =
+  def genScalaSources(dest : Path, pkgSources : Set[PackageSource], extras : GeneratorExtras) : ZIO[Any, Throwable, Unit] =
     def generateForGeneratorInPackage(generator : Identifier, pkgSource : PackageSource) : ZIO[Any, Throwable, Unit] =
       val destDirPath = dest.resolve(path(pkgSource.pkg))
       for
         generatorSource <- pkgSource.generatorSource(generator)
-        generatorScala  =  DefaultTranspiler(pkgSource.pkg,generator,GeneratorExtras.empty,generatorSource)
+        generatorScala  =  DefaultTranspiler(pkgSource.pkg,generator,extras,generatorSource)
         _               <- ZIO.attemptBlocking( Files.writeString(destDirPath.resolve(Path.of(s"${generator}.scala")), generatorScala.toString, scala.io.Codec.UTF8.charSet) )
       yield ()
     def generateForPackageSource(pkgSource : PackageSource) : ZIO[Any,Throwable,Unit] =
@@ -58,7 +70,7 @@ object Main extends zio.ZIOAppDefault {
     for
       pkgSources <- loadPackageSources(opts.source)
       _          <- createPackageDirs(opts.dest, pkgSources)
-      _          <- genScalaSources(opts.dest, pkgSources)
+      _          <- genScalaSources(opts.dest, pkgSources, opts.extras)
     yield ()
 
   def doIt( mbOpts : Option[Opts] ) : ZIO[Any,Throwable,Unit] =

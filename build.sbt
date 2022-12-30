@@ -1,5 +1,7 @@
 val ScalaVersion = "3.2.1"
 
+enablePlugins(JavaAppPackaging)
+
 lazy val root = project
   .in(file("."))
   .settings(
