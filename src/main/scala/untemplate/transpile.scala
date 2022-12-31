@@ -299,27 +299,28 @@ private def transpileToWriter(pkg : List[Identifier], generatorName : Identifier
       //w.writeln("// end author-defined imports")
       w.writeln()
   }
-  w.writeln(0)(s"private object ${helperName}:")
   val blockPrinterTups =
-    for (i <- 0 until textBlocks.length) yield (s"BP${i}", textBlocks(i).functionIdentifier, rawTextToBlockPrinter( inputVarName, inputType, textBlocks(i).rawTextBlock ))
-  blockPrinterTups.foreach { tup =>
-    w.writeln(1)(s"private val ${tup(0)} = ${tup(2)}" )
-  }
-  w.writeln()
-  val allBPsStr =  blockPrinterTups.map(tup => tup(0)).mkString(", ")
-  w.writeln( indentLevel = 1 )(s"val BlockPrinters = Vector( $allBPsStr )")
-  w.writeln()
-  blockPrinterTups.foreach { tup =>
-    tup(1).foreach( fname => w.writeln(1)(s"val ${fname} = ${tup(0)}") )
-  }
-  w.writeln(0)(s"end ${helperName}")
-  w.writeln()
+    (for (i <- 0 until textBlocks.length) yield (s"block${i}", textBlocks(i).functionIdentifier, rawTextToBlockPrinter( inputVarName, inputType, textBlocks(i).rawTextBlock ))).toVector
+
+//  w.writeln(0)(s"private object ${helperName}:")
+//  blockPrinterTups.foreach { tup =>
+//    w.writeln(1)(s"private val ${tup(0)} = ${tup(2)}" )
+//  }
+//  w.writeln()
+//  val allBPsStr =  blockPrinterTups.map(tup => tup(0)).mkString(", ")
+//  w.writeln( indentLevel = 1 )(s"val BlockPrinters = Vector( $allBPsStr )")
+//  w.writeln()
+//  blockPrinterTups.foreach { tup =>
+//    tup(1).foreach( fname => w.writeln(1)(s"val ${fname} = ${tup(0)}") )
+//  }
+//  w.writeln(0)(s"end ${helperName}")
+//  w.writeln()
   w.writeln(0)(s"def ${generatorName}(${inputVarName} : ${inputType}) : String =")
-  w.writeln(1)(generatorBody(td3, inputVarName, helperName, mbPartitionedHeaderBlock))
+  w.writeln(1)(generatorBody(td3, inputVarName, blockPrinterTups, mbPartitionedHeaderBlock))
   w.writeln(0)(s"end ${generatorName}")
   w.writeln()
 
-private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, helperName : Identifier, mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock] )(using ui : UnitIndent) : String =
+private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, blockPrinterTups : Vector[Tuple3[String,Option[Identifier],String]], mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock] )(using ui : UnitIndent) : String =
   val w = new StringWriter(K128) // XXX: Hardcoded initial capacity
   var lastIndentSpaces = 0
 
@@ -327,8 +328,8 @@ private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, help
     lastIndentSpaces / ui.toInt + (if (lastIndentSpaces % ui.toInt) == 0 then 0 else 1)
 
   // setup author resources
-  w.writeln(s"import ${helperName}.*")
-  w.writeln()
+  // w.writeln(s"import ${helperName}.*")
+  // w.writeln()
 
   // For now I don't think this is worth the extra complexity.
   //
@@ -357,9 +358,15 @@ private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, help
         w.writeln(0)(cblock.text)
         lastIndentSpaces = cblock.lastIndent
       case tblock : ParseBlock.Text =>
-        val argList = s"( ${inputVarName}, scratchpad )"
-        val functionExpression = tblock.functionIdentifier.getOrElse(s"BlockPrinters(${textBlockCount})")
-        w.writeln(lastIndentLevel + 1)(s"writer.write(${functionExpression}${argList})${LineSep}")
+        val tup = blockPrinterTups( textBlockCount )
+        tblock.functionIdentifier match
+          case Some( fcnName ) =>
+            w.writeln(lastIndentLevel)(s"val ${tup(0)} = ${tup(2)}" )
+            w.writeln(lastIndentLevel)(s"val ${fcnName} = ${tup(0)}" )
+          case None =>
+            w.writeln(lastIndentLevel + 1)(s"val ${tup(0)} = ${tup(2)}" )
+            val argList = s"( ${inputVarName}, scratchpad )"
+            w.writeln(lastIndentLevel + 1)(s"writer.write(block${textBlockCount}${argList})${LineSep}")
         textBlockCount += 1
   }
   w.writeln(0)("writer.toString")
