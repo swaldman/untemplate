@@ -281,22 +281,24 @@ private def transpileToWriter(pkg : List[Identifier], generatorName : Identifier
   w.writeln("import java.io.{Writer,StringWriter}")
   w.writeln("import scala.collection.*")
   w.writeln()
-  w.writeln("// start generator-extras imports")
-  generatorExtras.extraImports.foreach { line =>
-    val tl = line.trim
-    if tl.startsWith("import") then
-      w.writeln(tl)
-    else
-      w.writeln(s"import ${tl}")
-  }
-  w.writeln("// end generator-extras imports")
-  w.writeln()
-  w.writeln("// start author-defined imports")
+  if (generatorExtras.extraImports.nonEmpty)
+    //w.writeln("// start generator-extras imports")
+    generatorExtras.extraImports.foreach { line =>
+      val tl = line.trim
+      if tl.startsWith("import") then
+        w.writeln(tl)
+      else
+        w.writeln(s"import ${tl}")
+    }
+    //w.writeln("// end generator-extras imports")
+    w.writeln()
   mbPartitionedHeaderBlock.foreach { phb =>
-    w.writeln(phb.importsText)
+    if phb.importsText.nonEmpty then
+      //w.writeln("// start author-defined imports")
+      w.writeln(phb.importsText)
+      //w.writeln("// end author-defined imports")
+      w.writeln()
   }
-  w.writeln("// end author-defined imports")
-  w.writeln()
   w.writeln(0)(s"private object ${helperName}:")
   val blockPrinterTups =
     for (i <- 0 until textBlocks.length) yield (s"BP${i}", textBlocks(i).functionIdentifier, rawTextToBlockPrinter( inputVarName, inputType, textBlocks(i).rawTextBlock ))
@@ -327,10 +329,14 @@ private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, help
   // setup author resources
   w.writeln(s"import ${helperName}.*")
   w.writeln()
-  w.writeln(0)("extension (s : mutable.Map[String,Any])")
-  w.writeln(1)("def as[T](key: String): T = s(key).asInstanceOf[T]")
-  w.writeln(1)("def check[T](key: String): Option[T] = s.get(key).map(_.asInstanceOf[T])")
-  w.writeln()
+
+  // For now I don't think this is worth the extra complexity.
+  //
+  // w.writeln(0)("extension (s : mutable.Map[String,Any])")
+  // w.writeln(1)("def as[T](key: String): T = s(key).asInstanceOf[T]")
+  // w.writeln(1)("def check[T](key: String): Option[T] = s.get(key).map(_.asInstanceOf[T])")
+  // w.writeln()
+
   w.writeln("val scratchpad : mutable.Map[String,Any] = mutable.Map.empty[String,Any]")
   w.writeln(s"val writer = new StringWriter(${K128}) //XXX: Hardcoded initial capacity")
   w.writeln()
