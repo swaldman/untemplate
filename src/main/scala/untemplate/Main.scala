@@ -30,7 +30,7 @@ object Main extends zio.ZIOAppDefault {
         .valueName("<name>")
         .text("name for input identifier, if not specified within the template"),
       opt[String]("default-input-type")
-        .action( (str, opts) => opts.copy(extras = opts.extras.copy(mbDefaultInputType = Some(toIdentifier(str)))) )
+        .action( (str, opts) => opts.copy(extras = opts.extras.copy(mbDefaultInputType = Some(str))) )
         .valueName("<type-name>")
         .text("name for input type, fully-qualified or resolvable via imports supplied here or built into the template"),
       opt[Seq[String]]("extra-imports")

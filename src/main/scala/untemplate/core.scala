@@ -26,7 +26,7 @@ private def toGeneratorScala( text : String ) : GeneratorScala = text
 
 object GeneratorExtras:
   val empty = new GeneratorExtras(None, None, Vector.empty)
-case class GeneratorExtras( mbDefaultInputName : Option[Identifier], mbDefaultInputType : Option[Identifier], extraImports : Vector[String])
+case class GeneratorExtras( mbDefaultInputName : Option[Identifier], mbDefaultInputType : Option[String], extraImports : Vector[String])
 
 type Transpiler       = Function4[List[Identifier], Identifier, GeneratorExtras, GeneratorSource, GeneratorScala]
 type Generator[-A]    = Function1[A,String]

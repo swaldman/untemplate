@@ -11,16 +11,16 @@ import com.mchange.codegenutil.*
 // There must be a more concise and prettier way.
 // Maybe someday
 
-private val UnitIdentifier              = toIdentifier("Unit")
+private val DefaultInputType            = "immutable.Map[String,Any]"
 private val BackstopInputNameIdentifier = toIdentifier("input")
 
-private val K100 = 100 * 1024
+private val K128 = 128 * 1024
 
 private final case class TranspileData1(source : GeneratorSource, spaceNormalized : Vector[String], indentLevels : Vector[Int])
 private final case class TranspileData2(last : TranspileData1, hasHeader : Boolean, mbInputName : Option[String], mbInputType : Option[String], textBlockInfos : Vector[TextBlockInfo])
 private final case class TranspileData3(last : TranspileData2, headerInfo : Option[HeaderInfo], nonheaderBlocks : Vector[ParseBlock])
 
-private case class HeaderInfo(mbInputName : Option[Identifier], mbInputTypeIdentifier : Option[Identifier], headerBlock : ParseBlock.Code)
+private case class HeaderInfo(mbInputName : Option[Identifier], mbInputType : Option[String], headerBlock : ParseBlock.Code)
 private final case class TextBlockInfo(functionName : Option[String], startDelimeter : Option[Int], stopDelimeter : Option[Int])
 
 private object ParseBlock:
@@ -165,7 +165,7 @@ private def parseBlockTextFromInfo( unmodifiedLines : Vector[String], info : Tex
 
 private def collectBlocksNonEmpty( td2 : TranspileData2 ) : TranspileData3 =
   val mbInputNameIdentifier                 = td2.mbInputName.map( toIdentifier )
-  val mbInputTypeIdentifier                   = td2.mbInputType.map( toIdentifier )
+  val mbInputType                           = td2.mbInputType
   var headerBlock : Option[ParseBlock.Code] = None
 
   // for text, we take from unmodified GeneratorSource.
@@ -205,7 +205,7 @@ private def collectBlocksNonEmpty( td2 : TranspileData2 ) : TranspileData3 =
 
   val nonheaderBlocks = blocksBuilder.result()
   val mbHeaderInfo =
-    headerBlock.map(hblock => HeaderInfo(mbInputNameIdentifier, mbInputTypeIdentifier, hblock))
+    headerBlock.map(hblock => HeaderInfo(mbInputNameIdentifier, mbInputType, hblock))
 
   TranspileData3( td2, mbHeaderInfo : Option[HeaderInfo], nonheaderBlocks )
 
@@ -239,14 +239,14 @@ private def rawTextToSourceConcatenatedLiteralsAndExpressions( text : String ) :
   sb.append(formatAsciiScalaStringLiteral( unescapedLastTextBit + LineSep)) //we removed the separators parsing into lines, better put 'em back!
   sb.toString
 
-private def rawTextToBlockPrinter( inputName : Identifier, inputType : Identifier, innerIndent : Int, text : String ) : String =
+private def rawTextToBlockPrinter( inputName : Identifier, inputType : String, innerIndent : Int, text : String ) : String =
   val spaces = " " * innerIndent
   val stringExpression = rawTextToSourceConcatenatedLiteralsAndExpressions( text )
   s"""|new Function2[${inputType},mutable.Map[String,Any],String]:
       |${spaces}def apply( ${inputName} : ${inputType}, scratchpad : mutable.Map[String,Any]) : String =
       |${increaseIndent(innerIndent*2)(stringExpression)}""".stripMargin
 
-private def rawTextToBlockPrinter( inputName : Identifier, inputType : Identifier, text : String )(using ui : UnitIndent) : String = rawTextToBlockPrinter(inputName, inputType, ui.toInt, text)
+private def rawTextToBlockPrinter( inputName : Identifier, inputType : String, text : String )(using ui : UnitIndent) : String = rawTextToBlockPrinter(inputName, inputType, ui.toInt, text)
 
 private final case class PartitionedHeaderBlock(importsText : String, otherHeaderText : String, otherLastIndent : Int)
 
@@ -268,7 +268,7 @@ private def transpileToWriter(pkg : List[Identifier], generatorName : Identifier
       case Some( HeaderInfo( mbInputName, mbInputType, headerBlock ) ) => (mbInputName, mbInputType, Some(partitionHeaderBlock(headerBlock.text)))
       case None                                                        => (None, None, None)
   val inputVarName : Identifier = (mbInputName orElse generatorExtras.mbDefaultInputName).getOrElse( BackstopInputNameIdentifier )
-  val inputType    : Identifier = (mbInputType orElse generatorExtras.mbDefaultInputType).getOrElse( UnitIdentifier )
+  val inputType    : String = (mbInputType orElse generatorExtras.mbDefaultInputType).getOrElse( DefaultInputType )
 
   val textBlocks = td3.nonheaderBlocks.collect { case b : ParseBlock.Text => b }
 
@@ -318,7 +318,7 @@ private def transpileToWriter(pkg : List[Identifier], generatorName : Identifier
   w.writeln()
 
 private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, helperName : Identifier, mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock] )(using ui : UnitIndent) : String =
-  val w = new StringWriter(K100) // XXX: Hardcoded initial capacity
+  val w = new StringWriter(K128) // XXX: Hardcoded initial capacity
   var lastIndentSpaces = 0
 
   def lastIndentLevel =
@@ -332,7 +332,7 @@ private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, help
   w.writeln(1)("def check[T](key: String): Option[T] = s.get(key).map(_.asInstanceOf[T])")
   w.writeln()
   w.writeln("val scratchpad : mutable.Map[String,Any] = mutable.Map.empty[String,Any]")
-  w.writeln(s"val writer = new StringWriter(${K100}) //XXX: Hardcoded initial capacity")
+  w.writeln(s"val writer = new StringWriter(${K128}) //XXX: Hardcoded initial capacity")
   w.writeln()
 
   // header first
@@ -360,7 +360,7 @@ private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, help
   w.toString
 
 private def defaultTranspile( pkg : List[Identifier], generatorName : Identifier, generatorExtras : GeneratorExtras, src : GeneratorSource ) : GeneratorScala =
-  val w = new StringWriter(K100) // XXX: hardcoded initial buffer length, should we examine src?
+  val w = new StringWriter(K128) // XXX: hardcoded initial buffer length, should we examine src?
   transpileToWriter(pkg, generatorName, generatorExtras, src, w)
   toGeneratorScala(w.toString)
 
