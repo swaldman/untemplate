@@ -1,6 +1,6 @@
 package untemplate
 
-private val UnanchoredHeaderDelimeterRegexString = """\((.*?)\)\[(.*?)\]\~\((.*?)\)\>"""
+private val UnanchoredHeaderDelimeterRegexString = """\((.*?)\)\[(.*)\]\~\((.*?)\)\>"""
 private val UnanchoredHeaderDelimeterRegex = UnanchoredHeaderDelimeterRegexString.r
 private val AnchoredHeaderDelimeterRegex = ("""^"""+ UnanchoredHeaderDelimeterRegexString + """\s*$""").r
 
