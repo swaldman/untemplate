@@ -61,6 +61,10 @@ private object LineDelimeter:
   case object End extends LineDelimeter
 private sealed trait LineDelimeter
 
+private val EmptyStringOption = Some("")
+private def nonEmptyStringOption(s : String) : Option[String] = if (s.isEmpty) None else Option(s)
+private def nonEmptyStringOption(o : Option[String]) : Option[String] = if (o == EmptyStringOption) None else o
+
 private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
   var headerTuple : Option[Tuple2[Int,LineDelimeter.Header]] = None
   val parseTuples : mutable.SortedMap[Int,LineDelimeter] = mutable.SortedMap.empty // empty only of there are no delimeters at all
@@ -69,13 +73,14 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
     if td1.indentLevels(i) == 0 then
       td1.source.lines(i) match {
         case AnchoredHeaderDelimeterRegex(inputName, inputType, functionName) =>
+          // println("SAW HEADER DELIMETER")
           if headerTuple == None then
-            headerTuple = Some(Tuple2(i, LineDelimeter.Header(Option(inputName), Option(inputType))))
+            headerTuple = Some(Tuple2(i, LineDelimeter.Header(nonEmptyStringOption(inputName), nonEmptyStringOption(inputType))))
             parseTuples += Tuple2(i, LineDelimeter.Start(functionName))
           else
             throw new ParseException(s"Duplicate header delimeter at line ${i}")
         case AnchoredTextStartDelimiterRegex(functionName) =>
-          parseTuples += Tuple2(i, LineDelimeter.Start(functionName))
+          parseTuples += Tuple2(i, LineDelimeter.Start(nonEmptyStringOption(functionName)))
         case AnchoredTextEndDelimeterRegex() =>
           parseTuples += Tuple2(i, LineDelimeter.End)
         case _ => /* No match, move on */
@@ -256,6 +261,8 @@ private def transpileToWriter(pkg : List[Identifier], generatorName : Identifier
   val td1 = untabAndCountSpaces( src )
   val td2 = basicParse( td1 )
   val td3 = collectBlocks( td2 )
+  // println(td3)
+  // println(s"headerInfo[${generatorName}] >>> " + td3.headerInfo)
   val (mbInputName, mbInputType, mbPartitionedHeaderBlock) =
     td3.headerInfo match
       case Some( HeaderInfo( mbInputName, mbInputType, headerBlock ) ) => (mbInputName, mbInputType, Some(partitionHeaderBlock(headerBlock.text)))
