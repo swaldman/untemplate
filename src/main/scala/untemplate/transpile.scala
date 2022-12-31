@@ -242,8 +242,8 @@ private def rawTextToSourceConcatenatedLiteralsAndExpressions( text : String ) :
 private def rawTextToBlockPrinter( inputName : Identifier, inputType : String, innerIndent : Int, text : String ) : String =
   val spaces = " " * innerIndent
   val stringExpression = rawTextToSourceConcatenatedLiteralsAndExpressions( text )
-  s"""|new Function2[${inputType},mutable.Map[String,Any],String]:
-      |${spaces}def apply( ${inputName} : ${inputType}, scratchpad : mutable.Map[String,Any]) : String =
+  s"""|new Function1[${inputType},String]:
+      |${spaces}def apply( ${inputName} : ${inputType} ) : String =
       |${increaseIndent(innerIndent*2)(stringExpression)}""".stripMargin
 
 private def rawTextToBlockPrinter( inputName : Identifier, inputType : String, text : String )(using ui : UnitIndent) : String = rawTextToBlockPrinter(inputName, inputType, ui.toInt, text)
@@ -316,11 +316,11 @@ private def transpileToWriter(pkg : List[Identifier], generatorName : Identifier
 //  w.writeln(0)(s"end ${helperName}")
 //  w.writeln()
   w.writeln(0)(s"def ${generatorName}(${inputVarName} : ${inputType}) : String =")
-  w.writeln(1)(generatorBody(td3, inputVarName, blockPrinterTups, mbPartitionedHeaderBlock))
+  w.writeln(1)(generatorBody(td3, inputVarName, inputType, blockPrinterTups, mbPartitionedHeaderBlock))
   w.writeln(0)(s"end ${generatorName}")
   w.writeln()
 
-private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, blockPrinterTups : Vector[Tuple3[String,Option[Identifier],String]], mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock] )(using ui : UnitIndent) : String =
+private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, inputType : String, blockPrinterTups : Vector[Tuple3[String,Option[Identifier],String]], mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock] )(using ui : UnitIndent) : String =
   val w = new StringWriter(K128) // XXX: Hardcoded initial capacity
   var lastIndentSpaces = 0
 
@@ -338,7 +338,7 @@ private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, bloc
   // w.writeln(1)("def check[T](key: String): Option[T] = s.get(key).map(_.asInstanceOf[T])")
   // w.writeln()
 
-  w.writeln("val scratchpad : mutable.Map[String,Any] = mutable.Map.empty[String,Any]")
+  // w.writeln("val scratchpad : mutable.Map[String,Any] = mutable.Map.empty[String,Any]")
   w.writeln(s"val writer = new StringWriter(${K128}) //XXX: Hardcoded initial capacity")
   w.writeln()
 
@@ -362,10 +362,10 @@ private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, bloc
         tblock.functionIdentifier match
           case Some( fcnName ) =>
             w.writeln(lastIndentLevel)(s"val ${tup(0)} = ${tup(2)}" )
-            w.writeln(lastIndentLevel)(s"val ${fcnName} = ${tup(0)}" )
+            w.writeln(lastIndentLevel)(s"def ${fcnName}( arg : ${inputType} = ${inputVarName} ) = ${tup(0)}( arg )" )
           case None =>
             w.writeln(lastIndentLevel + 1)(s"val ${tup(0)} = ${tup(2)}" )
-            val argList = s"( ${inputVarName}, scratchpad )"
+            val argList = s"( ${inputVarName} )"
             w.writeln(lastIndentLevel + 1)(s"writer.write(block${textBlockCount}${argList})${LineSep}")
         textBlockCount += 1
   }

@@ -30,7 +30,7 @@ case class GeneratorExtras( mbDefaultInputName : Option[Identifier], mbDefaultIn
 
 type Transpiler       = Function4[List[Identifier], Identifier, GeneratorExtras, GeneratorSource, GeneratorScala]
 type Generator[-A]    = Function1[A,String]
-type BlockPrinter[-A] = Function2[A,mutable.Map[String,Any],String]
+type BlockPrinter[-A] = Function1[A,String]
 
 val DefaultTranspiler : Transpiler = defaultTranspile
 
