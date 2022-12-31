@@ -4,6 +4,8 @@ import java.nio.file.{Files, Path}
 import scopt.OParser
 import zio.*
 
+private val GeneratorScalaPrefix = "untemplate_"
+
 object Main extends zio.ZIOAppDefault {
   case class Opts(source: Path = Path.of("."), dest: Path = null, extras: GeneratorExtras = GeneratorExtras.empty)
 
@@ -59,7 +61,7 @@ object Main extends zio.ZIOAppDefault {
       for
         generatorSource <- pkgSource.generatorSource(generator)
         generatorScala  =  DefaultTranspiler(pkgSource.pkg,generator,extras,generatorSource)
-        _               <- ZIO.attemptBlocking( Files.writeString(destDirPath.resolve(Path.of(s"${generator}.scala")), generatorScala.toString, scala.io.Codec.UTF8.charSet) )
+        _               <- ZIO.attemptBlocking( Files.writeString(destDirPath.resolve(Path.of(s"${GeneratorScalaPrefix}${generator}.scala")), generatorScala.toString, scala.io.Codec.UTF8.charSet) )
       yield ()
     def generateForPackageSource(pkgSource : PackageSource) : ZIO[Any,Throwable,Unit] =
       ZIO.mergeAll(pkgSource.generators.map( generator => generateForGeneratorInPackage(generator, pkgSource) ))( () )( (_:Unit,_:Unit) => () )
