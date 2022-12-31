@@ -158,7 +158,7 @@ private def parseBlockTextFromInfo( unmodifiedLines : Vector[String], info : Tex
   val functionName = info.functionName.map(toIdentifier)
   ParseBlock.Text(functionName, text)
 
-private def collectBlocks( td2 : TranspileData2 ) : TranspileData3 =
+private def collectBlocksNonEmpty( td2 : TranspileData2 ) : TranspileData3 =
   val mbInputNameIdentifier                 = td2.mbInputName.map( toIdentifier )
   val mbInputTypeIdentifier                   = td2.mbInputType.map( toIdentifier )
   var headerBlock : Option[ParseBlock.Code] = None
@@ -203,6 +203,12 @@ private def collectBlocks( td2 : TranspileData2 ) : TranspileData3 =
     headerBlock.map(hblock => HeaderInfo(mbInputNameIdentifier, mbInputTypeIdentifier, hblock))
 
   TranspileData3( td2, mbHeaderInfo : Option[HeaderInfo], nonheaderBlocks )
+
+private def collectBlocks( td2 : TranspileData2 ) : TranspileData3 =
+  if (td2.textBlockInfos.nonEmpty) then collectBlocksNonEmpty(td2)
+  else
+    val unmodifiedText = td2.last.source.lines.mkString(LineSep)
+    TranspileData3(td2, None, Vector(ParseBlock.Text(None, unmodifiedText)))
 
 private def unescapeUntemplateDelimeters( s : String ) : String =
   UnescapeRegexes.foldLeft(s)( (last, regex) => regex.replaceAllIn(last, m => m.group(1) ) )
