@@ -188,8 +188,8 @@ private def collectBlocksNonEmpty( td2 : TranspileData2 ) : TranspileData3 =
   infos.foreach { info =>
     val mbPriorCodeBlock =
       (lastInfo.flatMap(_.stopDelimeter), info.startDelimeter) match
-        case (Some(before), Some(until)) => Some(ParseBlock.Code(normalizedLines.slice(before+1,until).mkString(LineSep), if until == 0 then 0 else indents(until-1)))
-        case (None,         Some(until)) => Some(ParseBlock.Code(normalizedLines.slice(0, until).mkString(LineSep), 0))
+        case (Some(before), Some(until)) => Some(ParseBlock.Code(normalizedLines.slice(before+1,until).mkString("",LineSep,LineSep), if until == 0 then 0 else indents(until-1)))
+        case (None,         Some(until)) => Some(ParseBlock.Code(normalizedLines.slice(0, until).mkString("",LineSep,LineSep), 0))
         case (Some(before), None       ) => throw new AssertionError(s"Interior text blocks should have start delimteres! [prior: ${lastInfo}, current: ${info}]")
         case (None,         None       ) => None // this is the first info, no start means we begin inside text
 
@@ -199,7 +199,7 @@ private def collectBlocksNonEmpty( td2 : TranspileData2 ) : TranspileData3 =
   }
   val mbLastCodeBlock =
     lastInfo.flatMap( _.stopDelimeter ).map { before =>
-      ParseBlock.Code(normalizedLines.slice(before+1,normalizedLines.length).mkString(LineSep), indents.last )
+      ParseBlock.Code(normalizedLines.slice(before+1,normalizedLines.length).mkString("",LineSep,LineSep), indents.last )
     }
   mbLastCodeBlock.foreach(blocksBuilder.addOne)
 
@@ -251,9 +251,10 @@ private def rawTextToBlockPrinter( inputName : Identifier, inputType : String, t
 private final case class PartitionedHeaderBlock(importsText : String, otherHeaderText : String, otherLastIndent : Int)
 
 private def partitionHeaderBlock( text : String ) : PartitionedHeaderBlock =
+  // println( s">>> headerBlockToPartition: ${text}" )
   val linesTuple = text.lines.toScala(List).partition( _.trim.startsWith("import ") )
   val importsText = linesTuple(0).map( _.trim ).mkString(LineSep)
-  val otherHeaderText = linesTuple(1).mkString(LineSep)
+  val otherHeaderText = linesTuple(1).mkString("",LineSep,LineSep)
   val otherLastIndent = linesTuple(1).lastOption.fold( 0 )( _.takeWhile(_ == ' ').length )
   PartitionedHeaderBlock(importsText, otherHeaderText, otherLastIndent)
 
@@ -302,22 +303,22 @@ private def transpileToWriter(pkg : List[Identifier], generatorName : Identifier
   val blockPrinterTups =
     (for (i <- 0 until textBlocks.length) yield (s"block${i}", textBlocks(i).functionIdentifier, rawTextToBlockPrinter( inputVarName, inputType, textBlocks(i).rawTextBlock ))).toVector
 
-//  w.writeln(0)(s"private object ${helperName}:")
+//  w.indentln(0)(s"private object ${helperName}:")
 //  blockPrinterTups.foreach { tup =>
-//    w.writeln(1)(s"private val ${tup(0)} = ${tup(2)}" )
+//    w.indentln(1)(s"private val ${tup(0)} = ${tup(2)}" )
 //  }
 //  w.writeln()
 //  val allBPsStr =  blockPrinterTups.map(tup => tup(0)).mkString(", ")
-//  w.writeln( indentLevel = 1 )(s"val BlockPrinters = Vector( $allBPsStr )")
+//  w.indentln( indentLevel = 1 )(s"val BlockPrinters = Vector( $allBPsStr )")
 //  w.writeln()
 //  blockPrinterTups.foreach { tup =>
-//    tup(1).foreach( fname => w.writeln(1)(s"val ${fname} = ${tup(0)}") )
+//    tup(1).foreach( fname => w.indentln(1)(s"val ${fname} = ${tup(0)}") )
 //  }
-//  w.writeln(0)(s"end ${helperName}")
+//  w.indentln(0)(s"end ${helperName}")
 //  w.writeln()
-  w.writeln(0)(s"def ${generatorName}(${inputVarName} : ${inputType}) : String =")
-  w.writeln(1)(generatorBody(td3, inputVarName, inputType, blockPrinterTups, mbPartitionedHeaderBlock))
-  w.writeln(0)(s"end ${generatorName}")
+  w.indentln(0)(s"def ${generatorName}(${inputVarName} : ${inputType}) : String =")
+  w.indentln(1)(generatorBody(td3, inputVarName, inputType, blockPrinterTups, mbPartitionedHeaderBlock))
+  w.indentln(0)(s"end ${generatorName}")
   w.writeln()
 
 private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, inputType : String, blockPrinterTups : Vector[Tuple3[String,Option[Identifier],String]], mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock] )(using ui : UnitIndent) : String =
@@ -333,9 +334,9 @@ private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, inpu
 
   // For now I don't think this is worth the extra complexity.
   //
-  // w.writeln(0)("extension (s : mutable.Map[String,Any])")
-  // w.writeln(1)("def as[T](key: String): T = s(key).asInstanceOf[T]")
-  // w.writeln(1)("def check[T](key: String): Option[T] = s.get(key).map(_.asInstanceOf[T])")
+  // w.indentln(0)("extension (s : mutable.Map[String,Any])")
+  // w.indentln(1)("def as[T](key: String): T = s(key).asInstanceOf[T]")
+  // w.indentln(1)("def check[T](key: String): Option[T] = s.get(key).map(_.asInstanceOf[T])")
   // w.writeln()
 
   // w.writeln("val scratchpad : mutable.Map[String,Any] = mutable.Map.empty[String,Any]")
@@ -345,6 +346,7 @@ private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, inpu
   // header first
   mbPartitionedHeaderBlock.foreach { phb =>
     // println(s">>> phb: ${phb}")
+    // println(s">>> phb.otherHeaderText: ${phb.otherHeaderText}")
     w.writeln( phb.otherHeaderText )
     lastIndentSpaces = phb.otherLastIndent
   }
@@ -355,21 +357,22 @@ private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, inpu
     block match
       case cblock : ParseBlock.Code =>
         // println(s">>> cblock: ${cblock}")
-        w.writeln(0)(cblock.text)
+        // println(s""">> cblock.text.endsWith("\n"): ${cblock.text.endsWith("\n")}""")
+        w.indent(0)(cblock.text) // properly includes its trailing line feed
         lastIndentSpaces = cblock.lastIndent
       case tblock : ParseBlock.Text =>
         val tup = blockPrinterTups( textBlockCount )
         tblock.functionIdentifier match
           case Some( fcnName ) =>
-            w.writeln(lastIndentLevel)(s"val ${tup(0)} = ${tup(2)}" )
-            w.writeln(lastIndentLevel)(s"def ${fcnName}( arg : ${inputType} = ${inputVarName} ) = ${tup(0)}( arg )" )
+            w.indentln(lastIndentLevel)(s"val ${tup(0)} = ${tup(2)}" )
+            w.indentln(lastIndentLevel)(s"def ${fcnName}( arg : ${inputType} = ${inputVarName} ) = ${tup(0)}( arg )" )
           case None =>
-            w.writeln(lastIndentLevel + 1)(s"val ${tup(0)} = ${tup(2)}" )
+            w.indentln(lastIndentLevel + 1)(s"val ${tup(0)} = ${tup(2)}" )
             val argList = s"( ${inputVarName} )"
-            w.writeln(lastIndentLevel + 1)(s"writer.write(block${textBlockCount}${argList})${LineSep}")
+            w.indentln(lastIndentLevel + 1)(s"writer.write(block${textBlockCount}${argList})${LineSep}")
         textBlockCount += 1
   }
-  w.writeln(0)("writer.toString")
+  w.indentln(0)("writer.toString")
   w.toString
 
 private def defaultTranspile( pkg : List[Identifier], generatorName : Identifier, generatorExtras : GeneratorExtras, src : GeneratorSource ) : GeneratorScala =
