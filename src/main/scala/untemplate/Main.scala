@@ -56,15 +56,16 @@ object Main extends zio.ZIOAppDefault {
 
 
   def genScalaSources(dest : Path, pkgSources : Set[PackageSource], extras : GeneratorExtras) : ZIO[Any, Throwable, Unit] =
-    def generateForGeneratorInPackage(generator : Identifier, pkgSource : PackageSource) : ZIO[Any, Throwable, Unit] =
+    def generateForGeneratorInPackage(generatorSourceName : String, pkgSource : PackageSource) : ZIO[Any, Throwable, Unit] =
       val destDirPath = dest.resolve(path(pkgSource.pkg))
+      val defaultFunctionIdentifier = generatorSourceNameToIdentifier(generatorSourceName)
       for
-        generatorSource <- pkgSource.generatorSource(generator)
-        generatorScala  =  DefaultTranspiler(pkgSource.pkg,generator,extras,generatorSource)
-        _               <- ZIO.attemptBlocking( Files.writeString(destDirPath.resolve(Path.of(s"${GeneratorScalaPrefix}${generator}.scala")), generatorScala.toString, scala.io.Codec.UTF8.charSet) )
+        generatorSource                       <- pkgSource.generatorSource(generatorSourceName)
+        (functionIdentifier, generatorScala)  =  DefaultTranspiler(pkgSource.pkg,defaultFunctionIdentifier,extras,generatorSource)
+        _                                     <- ZIO.attemptBlocking( Files.writeString(destDirPath.resolve(Path.of(s"${GeneratorScalaPrefix}${functionIdentifier}.scala")), generatorScala.toString, scala.io.Codec.UTF8.charSet) )
       yield ()
     def generateForPackageSource(pkgSource : PackageSource) : ZIO[Any,Throwable,Unit] =
-      ZIO.mergeAll(pkgSource.generators.map( generator => generateForGeneratorInPackage(generator, pkgSource) ))( () )( (_:Unit,_:Unit) => () )
+      ZIO.mergeAll(pkgSource.generatorSourceNames.map( sourceName => generateForGeneratorInPackage(sourceName, pkgSource) ))( () )( (_:Unit,_:Unit) => () )
     ZIO.mergeAll(pkgSources.map(generateForPackageSource))( () )( (_:Unit,_:Unit) => () )
 
 

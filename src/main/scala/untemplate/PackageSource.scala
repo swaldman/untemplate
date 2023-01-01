@@ -7,10 +7,6 @@ import java.nio.file.{Files,Path}
 import zio.*
 
 object PackageSource:
-  private val Suffix = "untemplate"
-  private val DotSuffix    = "." + Suffix
-  private val DotSuffixLen = DotSuffix.length
-
   private val EmptyStringList = "" :: Nil
 
   def fromDirectory( dirPath : Path, baseDirPath : Option[Path] = None, codec : Codec = Codec.UTF8 ) : Task[PackageSource] =
@@ -22,19 +18,11 @@ object PackageSource:
         else pieces.map( piece => toIdentifier(piece) ) // no pkg dir shows up as an empty string, we want an empty list
       val allFilePaths = Files.list(dirPath).toScala(Vector)
       val untemplatePaths = allFilePaths.filter(path => Files.isRegularFile(path) && path.toString.endsWith(DotSuffix))
-      val idVec = untemplatePaths.map {
-        path =>
-          val fname = path.getFileName.toString
-          val noSuffix = fname.substring(0, fname.length - DotSuffixLen)
-          toIdentifier(noSuffix)
-      }
-      val idUniques = idVec.distinct
-      if (idVec.size != idUniques.size)
-        throw new NonuniqueIdentifier(s"""Directory '${dirPath}' would define duplicate generators: ${(idVec.diff(idUniques)).toSet.mkString(",")}""")
-      val identifiersToPaths = Map(idVec.zip(untemplatePaths): _*)
-      val generatorSource: Identifier => Task[GeneratorSource] =
-        identifier => ZIO.attemptBlocking(asGeneratorSource(Files.readAllLines(identifiersToPaths(identifier), codec.charSet).asScala.toVector))
-      PackageSource(pkg, idVec, generatorSource)
+      val generatorSourceNameVec = untemplatePaths.map( _.getFileName.toString )
+      val generatorSourceNamesToPaths = Map(generatorSourceNameVec.zip(untemplatePaths): _*)
+      val generatorSource: String => Task[GeneratorSource] =
+        generatorSourceName => ZIO.attemptBlocking(asGeneratorSource(Files.readAllLines(generatorSourceNamesToPaths(generatorSourceName), codec.charSet).asScala.toVector))
+      PackageSource(pkg, generatorSourceNameVec, generatorSource)
     }
 
   def fromBaseDirectoryRecursive(baseDirPath : Path, codec : Codec = Codec.UTF8 ) : Task[Set[PackageSource]] =
@@ -44,6 +32,6 @@ object PackageSource:
       taskList     =  dirPaths.map(dirPath => fromDirectory( dirPath, someBdp, codec)) //List[Task[PackageSource]]
       pkgSourceSet <- ZIO.mergeAll(taskList)(Set.empty[PackageSource])( (set, pkgSource) => set + pkgSource ) : Task[Set[PackageSource]]
     yield
-      pkgSourceSet.filter( _.generators.nonEmpty )
+      pkgSourceSet.filter( _.generatorSourceNames.nonEmpty /* || scalaSourceNames.nonEmpty */ )
 
-case class PackageSource(pkg : List[Identifier], generators : Vector[Identifier], generatorSource : Identifier => Task[GeneratorSource])
+case class PackageSource(pkg : List[Identifier], generatorSourceNames : Vector[String], generatorSource : String => Task[GeneratorSource])
