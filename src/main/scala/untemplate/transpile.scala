@@ -331,10 +331,19 @@ private def transpileToWriter(pkg : List[Identifier], defaultGeneratorName : Ide
 //  }
 //  w.indentln(0)(s"end ${helperName}")
 //  w.writeln()
-  w.indentln(0)(s"def ${generatorName}(${inputVarName} : ${inputType}) : String =")
-  w.indentln(1)(generatorBody(td3, inputVarName, inputType, blockPrinterTups, mbPartitionedHeaderBlock))
-  w.indentln(0)(s"end ${generatorName}")
+  val argList = s"(${inputVarName} : ${inputType})"
+  val functionObjectName = s"Function_${generatorName}"
+  w.indentln(0)(s"val ${functionObjectName} = new Function1[${inputType},String]:")
+  w.indentln(1)(s"val UntemplateFunction : Function1[${inputType},String] = this")
+  w.indentln(1)(s"""val UntemplateName      = "${generatorName}"""")
+  w.indentln(1)(s"""val UntemplateInputType = "${inputType}"""")
   w.writeln()
+  w.indentln(1)(s"def apply${argList} =")
+  w.indentln(2)(generatorBody(td3, inputVarName, inputType, blockPrinterTups, mbPartitionedHeaderBlock))
+  w.indentln(1)(s"end apply")
+  w.indentln(0)(s"end ${functionObjectName}")
+  w.writeln()
+  w.indentln(0)(s"def ${generatorName}$argList : String = ${functionObjectName}( ${inputVarName} )")
   generatorName
 
 private def generatorBody( td3 : TranspileData3, inputVarName : Identifier, inputType : String, blockPrinterTups : Vector[Tuple3[String,Option[Identifier],String]], mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock] )(using ui : UnitIndent) : String =
