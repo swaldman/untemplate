@@ -271,15 +271,21 @@ private def rawTextToBlockPrinter( inputName : Identifier, inputType : String, i
 
 private def rawTextToBlockPrinter( inputName : Identifier, inputType : String, text : String )(using ui : UnitIndent) : String = rawTextToBlockPrinter(inputName, inputType, ui.toInt, text)
 
-private final case class PartitionedHeaderBlock(importsText : String, otherHeaderText : String, otherLastIndent : Int)
+private final case class PartitionedHeaderBlock(packageText : Option[String], importsText : String, otherHeaderText : String, otherLastIndent : Int)
 
 private def partitionHeaderBlock( text : String ) : PartitionedHeaderBlock =
   // println( s">>> headerBlockToPartition: ${text}" )
   val linesTuple = text.lines.toScala(List).partition( _.trim.startsWith("import ") )
-  val importsText = linesTuple(0).map( _.trim ).mkString(LineSep)
-  val otherHeaderText = linesTuple(1).mkString("",LineSep,LineSep)
-  val otherLastIndent = linesTuple(1).lastOption.fold( 0 )( _.takeWhile(_ == ' ').length )
-  PartitionedHeaderBlock(importsText, otherHeaderText, otherLastIndent)
+  val importsText = linesTuple(0).map( _.trim ).mkString("",LineSep,LineSep)
+  val nonImportsTuple = linesTuple(1).partition( _.trim.startsWith("package ") )
+  val packageText =
+    if nonImportsTuple(0).nonEmpty then
+      Some(nonImportsTuple(0).map( _.trim ).mkString("",LineSep,LineSep))
+    else
+      None
+  val otherHeaderText = nonImportsTuple(1).mkString("",LineSep,LineSep)
+  val otherLastIndent = nonImportsTuple(1).lastOption.fold( 0 )( _.takeWhile(_ == ' ').length )
+  PartitionedHeaderBlock(packageText, importsText, otherHeaderText, otherLastIndent)
 
 private def transpileToWriter(pkg : List[Identifier], defaultGeneratorName : Identifier, generatorExtras : GeneratorExtras, src : GeneratorSource, w : Writer) : Identifier =
   val td1 = untabAndCountSpaces( src )
@@ -301,15 +307,17 @@ private def transpileToWriter(pkg : List[Identifier], defaultGeneratorName : Ide
 
   val helperName = toIdentifier(s"Helper_${generatorName}")
 
-  if pkg.nonEmpty then
-    w.writeln(s"""package ${pkg.mkString(".")}""")
+  mbPartitionedHeaderBlock.flatMap( _.packageText ) match
+    case Some(text) => w.writeln(text)
+    case None       =>
+      if pkg.nonEmpty then
+        w.writeln(s"""package ${pkg.mkString(".")}""")
+        w.writeln()
 
-  w.writeln()
   w.writeln("import java.io.{Writer,StringWriter}")
   w.writeln("import scala.collection.*")
   w.writeln()
   if (generatorExtras.extraImports.nonEmpty)
-    //w.writeln("// start generator-extras imports")
     generatorExtras.extraImports.foreach { line =>
       val tl = line.trim
       if tl.startsWith("import") then
@@ -317,13 +325,11 @@ private def transpileToWriter(pkg : List[Identifier], defaultGeneratorName : Ide
       else
         w.writeln(s"import ${tl}")
     }
-    //w.writeln("// end generator-extras imports")
     w.writeln()
+    
   mbPartitionedHeaderBlock.foreach { phb =>
     if phb.importsText.nonEmpty then
-      //w.writeln("// start author-defined imports")
       w.writeln(phb.importsText)
-      //w.writeln("// end author-defined imports")
       w.writeln()
   }
   val blockPrinterTups =
