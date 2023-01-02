@@ -261,10 +261,12 @@ private def rawTextToSourceConcatenatedLiteralsAndExpressions( text : String ) :
   sb.toString
 
 private def rawTextToBlockPrinter( inputName : Identifier, inputType : String, innerIndent : Int, text : String ) : String =
+  // we used to generate a function accepting ${inputName} : ${inputIdentifier}, but we have this anyway
+  // in the closure, so there's no point in complicating things with a shadow
   val spaces = " " * innerIndent
   val stringExpression = rawTextToSourceConcatenatedLiteralsAndExpressions( text )
-  s"""|new Function1[${inputType},String]:
-      |${spaces}def apply( ${inputName} : ${inputType} ) : String =
+  s"""|new Function0[String]:
+      |${spaces}def apply() : String =
       |${increaseIndent(innerIndent*2)(stringExpression)}""".stripMargin
 
 private def rawTextToBlockPrinter( inputName : Identifier, inputType : String, text : String )(using ui : UnitIndent) : String = rawTextToBlockPrinter(inputName, inputType, ui.toInt, text)
@@ -344,7 +346,7 @@ private def transpileToWriter(pkg : List[Identifier], defaultGeneratorName : Ide
   val functionObjectName = s"Function_${generatorName}"
   val fullReturnType = s"untemplate.Result[${outputMetadataType}]"
   w.indentln(0)(s"val ${functionObjectName} = new Function1[${inputType},${fullReturnType}]:")
-  w.indentln(1)(s"val UntemplateFunction : Function1[${inputType},${fullReturnType}] = this")
+  w.indentln(1)( """val UntemplateFunction           = this""")
   w.indentln(1)(s"""val UntemplateName               = "${generatorName}"""")
   w.indentln(1)(s"""val UntemplateInputName          = "${inputName}"""")
   w.indentln(1)(s"""val UntemplateInputType          = "${inputType}"""")
@@ -405,11 +407,10 @@ private def generatorBody( td3 : TranspileData3, inputName : Identifier, inputTy
         tblock.functionIdentifier match
           case Some( fcnName ) =>
             w.indentln(lastIndentLevel)(s"val ${tup(0)} = ${tup(2)}" )
-            w.indentln(lastIndentLevel)(s"def ${fcnName}( arg : ${inputType} = ${inputName} ) = ${tup(0)}( arg )" )
+            w.indentln(lastIndentLevel)(s"def ${fcnName}() = ${tup(0)}()" )
           case None =>
             w.indentln(lastIndentLevel + 1)(s"val ${tup(0)} = ${tup(2)}" )
-            val argList = s"( ${inputName} )"
-            w.indentln(lastIndentLevel + 1)(s"writer.write(block${textBlockCount}${argList})${LineSep}")
+            w.indentln(lastIndentLevel + 1)(s"writer.write(block${textBlockCount}())${LineSep}")
         textBlockCount += 1
   }
   w.indentln(0)("untemplate.Result( mbMetadata, writer.toString )")
