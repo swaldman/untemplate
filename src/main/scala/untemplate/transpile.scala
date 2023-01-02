@@ -326,7 +326,7 @@ private def transpileToWriter(pkg : List[Identifier], defaultGeneratorName : Ide
         w.writeln(s"import ${tl}")
     }
     w.writeln()
-    
+
   mbPartitionedHeaderBlock.foreach { phb =>
     if phb.importsText.nonEmpty then
       w.writeln(phb.importsText)

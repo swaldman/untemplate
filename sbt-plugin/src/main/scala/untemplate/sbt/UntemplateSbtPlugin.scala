@@ -16,6 +16,7 @@ object UntemplateSbtPlugin extends AutoPlugin {
     val untemplateDefaultInputName = settingKey[String]("The name of the input variable in generated source, if none is specified in the template")
     val untemplateDefaultInputType = settingKey[String]("The type of the input variable in generated source, if none is specified in the template")
     val untemplateExtraImports     = settingKey[Seq[String]]("Top-level import statements that should be inserted into untemplate scala")
+    val untemplateFlatten          = settingKey[Boolean]("If true, places all outputs directly in dest, rather than reproducing any directory hierarchy in src")
     val untemplateCommand          = settingKey[String]("untemplate must be run as an external command by sbt, since plugins cannot interact directly with Scala 3")
   }
 
@@ -25,6 +26,7 @@ object UntemplateSbtPlugin extends AutoPlugin {
     untemplateSource       := (Compile / sourceDirectory).value / "untemplate",
     untemplateScala        := (Compile / sourceManaged).value / "untemplate",
     untemplateExtraImports := Nil,
+    untemplateFlatten      := false,
     untemplateCommand      := "untemplate",
     (Compile / sourceGenerators) += Def.task {
       val srcDir  = untemplateSource.value

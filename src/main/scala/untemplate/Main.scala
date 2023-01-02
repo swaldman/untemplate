@@ -7,7 +7,12 @@ import zio.*
 private val GeneratorScalaPrefix = "untemplate_"
 
 object Main extends zio.ZIOAppDefault {
-  case class Opts(source: Path = Path.of("."), dest: Path = null, extras: GeneratorExtras = GeneratorExtras.empty)
+  case class Opts (
+    source  : Path            = Path.of("."),
+    dest    : Path            = null,
+    extras  : GeneratorExtras = GeneratorExtras.empty,
+    flatten : Boolean         = false
+  )
 
   val builder = OParser.builder[Opts]
   val parser1 = {
@@ -36,7 +41,10 @@ object Main extends zio.ZIOAppDefault {
       opt[Seq[String]]("extra-imports")
         .action( (extras, opts) => opts.copy(extras = opts.extras.copy(extraImports = extras.toVector)) )
         .valueName("<import1>,<import2>,<import3>,...")
-        .text("extra imports that should be included by default at the top level of templates")
+        .text("extra imports that should be included by default at the top level of templates"),
+      opt[Unit]("flatten")
+        .action( (_, opts) => opts.copy(flatten = true) )
+        .text("places all outputs directly in dest, rather than reproducing any directory hierarchy in source")
     )
   }
 
@@ -55,9 +63,9 @@ object Main extends zio.ZIOAppDefault {
     ZIO.attemptBlocking( pkgSources.map( _.pkg ).foreach(createPackageDir) )
 
 
-  def genScalaSources(dest : Path, pkgSources : Set[PackageSource], extras : GeneratorExtras) : ZIO[Any, Throwable, Unit] =
+  def genScalaSources(dest : Path, pkgSources : Set[PackageSource], extras : GeneratorExtras, flatten : Boolean) : ZIO[Any, Throwable, Unit] =
     def generateForGeneratorInPackage(generatorSourceName : String, pkgSource : PackageSource) : ZIO[Any, Throwable, Unit] =
-      val destDirPath = dest.resolve(path(pkgSource.pkg))
+      val destDirPath = if (flatten) dest else dest.resolve(path(pkgSource.pkg))
       val defaultFunctionIdentifier = generatorSourceNameToIdentifier(generatorSourceName)
       for
         generatorSource <- pkgSource.generatorSource(generatorSourceName)
@@ -73,7 +81,7 @@ object Main extends zio.ZIOAppDefault {
     for
       pkgSources <- loadPackageSources(opts.source)
       _          <- createPackageDirs(opts.dest, pkgSources)
-      _          <- genScalaSources(opts.dest, pkgSources, opts.extras)
+      _          <- genScalaSources(opts.dest, pkgSources, opts.extras, opts.flatten)
     yield ()
 
   def doIt( mbOpts : Option[Opts] ) : ZIO[Any,Throwable,Unit] =
