@@ -7,7 +7,7 @@ import zio.*
 private val GeneratorScalaPrefix = "untemplate_"
 
 object Main extends zio.ZIOAppDefault {
-  case class Opts (
+  final case class Opts (
     source  : Path            = Path.of("."),
     dest    : Path            = null,
     extras  : GeneratorExtras = GeneratorExtras.empty,
@@ -100,6 +100,14 @@ object Main extends zio.ZIOAppDefault {
     mbOpts match
       case Some(opts) => doIt(opts)
       case None       => ZIO.unit
+
+  // for outside clients.
+  // We probably want to reorganize this stuff
+  def unsafeDoIt( opts : Opts ) : Unit =
+    Unsafe.unsafe { implicit unsafe =>
+      Runtime.default.unsafe.run(doIt(opts)).getOrThrowFiberFailure()
+    }
+
 
   def parseArgs( args : Array[String] ) : ZIO[Any,Throwable,Option[Opts]] = ZIO.attempt( OParser.parse(parser1, args, Opts()) )
 
