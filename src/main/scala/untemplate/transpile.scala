@@ -63,10 +63,6 @@ private object LineDelimeter:
   case object End extends LineDelimeter
 private sealed trait LineDelimeter
 
-private val EmptyStringOption = Some("")
-private def nonEmptyStringOption(s : String) : Option[String] = if (s.isEmpty) None else Option(s)
-private def nonEmptyStringOption(o : Option[String]) : Option[String] = if (o == EmptyStringOption) None else o
-
 private def carveAroundDelimeterChar(maybeNullOrBlank : String, delimeter : Char, trim : Boolean) : Tuple2[Option[String],Option[String]] =
   val raw =
     if maybeNullOrBlank == null || maybeNullOrBlank.isEmpty then
