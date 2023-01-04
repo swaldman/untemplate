@@ -29,8 +29,5 @@
    * CustomizerKey?
    * Update docs about uselessness of Metainformation...
  * Refactorings
-   * don't use Java Streamsy String.lines, use Scala .linesIterator
    * instead of `Generator` (all over the place!), use more straightforward `Untemplate`
- * Let `PackageSource` return a result, whose metadata might include `lastModified`
-   to support incremental generation
  * "Feature creep" docs: OutputTransformer, long delimeters

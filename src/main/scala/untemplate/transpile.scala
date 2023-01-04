@@ -426,7 +426,7 @@ private def generatorBody( td3 : TranspileData3, inputName : Identifier, inputTy
             w.indentln(lastIndentLevel + 1)(s"writer.write(block${textBlockCount}())${LineSep}")
         textBlockCount += 1
   }
-  w.indentln(0)("outputTransformer( untemplate.Result.Simple( mbMetadata, writer.toString ) )")
+  w.indentln(0)("outputTransformer( untemplate.Result( mbMetadata, writer.toString ) )")
   w.toString
 
 private def defaultTranspile( pkg : List[Identifier], defaultGeneratorName : Identifier, generatorExtras : GeneratorExtras, src : GeneratorSource ) : GeneratorScala =

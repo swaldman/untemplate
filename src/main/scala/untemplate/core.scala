@@ -8,20 +8,7 @@ private val Suffix = "untemplate"
 private val DotSuffix = "." + Suffix
 private val DotSuffixLen = DotSuffix.length
 
-object Result:
-  case class Simple[+A](mbMetadata : Option[A], text : String ) extends Result[A]
-  class Lazy[+A](val mbMetadata: Option[A], genText: => String) extends Result[A]:
-    lazy val text = genText
-    override def toString: String = text
-trait Result[+A]:
-  def mbMetadata : Option[A]
-  def text       : String
-
-  lazy val asTuple : Tuple2[Option[A],String] = (mbMetadata, text)
-
-  override def toString() = text
-
-
+case class Result[+A](mbMetadata : Option[A], text : String )
 
 opaque type GeneratorSource  = Vector[String]
 opaque type GeneratorWarning = String
