@@ -17,6 +17,8 @@ private val DefaultOutputMetadataType   = "Nothing"
 private val BackstopInputNameIdentifier = toIdentifier("input")
 
 private val K128 = 128 * 1024
+private val K16  =  16 * 1024
+
 
 private final case class TranspileData1(source : GeneratorSource, spaceNormalized : Vector[String], indentLevels : Vector[Int])
 private final case class TranspileData2(last : TranspileData1, hasHeader : Boolean, mbInputName : Option[String], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideGeneratorName : Option[String], textBlockInfos : Vector[TextBlockInfo])
@@ -374,7 +376,7 @@ private def transpileToWriter(pkg : List[Identifier], defaultGeneratorName : Ide
 private def generatorBody( td3 : TranspileData3, inputName : Identifier, inputType : String, outputMetadataType : String, blockPrinterTups : Vector[Tuple3[String,Option[Identifier],String]], mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock] )(using ui : UnitIndent) : String =
   val origTextLen = td3.last.last.source.textLen
 
-  val w = new StringWriter(K128) // XXX: Hardcoded initial capacity
+  val w = new StringWriter(K16) // XXX: Hardcoded initial capacity
   var lastIndentSpaces = 0
 
   def lastIndentLevel =
@@ -392,7 +394,7 @@ private def generatorBody( td3 : TranspileData3, inputName : Identifier, inputTy
   // w.writeln()
 
   // w.writeln("val scratchpad : mutable.Map[String,Any] = mutable.Map.empty[String,Any]")
-  w.writeln(s"val writer             : StringWriter = new StringWriter(${origTextLen*2})")
+  w.writeln(s"val writer             : StringWriter = new StringWriter(${origTextLen*10})")
   w.writeln(s"var mbMetadata         : Option[${outputMetadataType}] = None")
   w.writeln(s"var outputTransformer  : Function1[untemplate.Result[${outputMetadataType}],untemplate.Result[${outputMetadataType}]] = identity")
   w.writeln()
@@ -425,11 +427,11 @@ private def generatorBody( td3 : TranspileData3, inputName : Identifier, inputTy
             w.indentln(lastIndentLevel + 1)(s"writer.write(block${textBlockCount}())${LineSep}")
         textBlockCount += 1
   }
-  w.indentln(0)("outputTransformer( untemplate.Result( mbMetadata, writer.toString ) )")
+  w.indentln(0)("outputTransformer( untemplate.Result.Simple( mbMetadata, writer.toString ) )")
   w.toString
 
 private def defaultTranspile( pkg : List[Identifier], defaultGeneratorName : Identifier, generatorExtras : GeneratorExtras, src : GeneratorSource ) : GeneratorScala =
-  val w = new StringWriter(K128) // XXX: hardcoded initial buffer length, should we examine src?
+  val w = new StringWriter(K16) // XXX: hardcoded initial buffer length, should we examine src?
   val generatorName = transpileToWriter(pkg, defaultGeneratorName, generatorExtras, src, w)
   GeneratorScala(generatorName, Vector.empty, w.toString)
 
