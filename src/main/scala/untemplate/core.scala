@@ -20,10 +20,10 @@ case class GeneratorExtras( mbDefaultInputName : Option[Identifier], mbDefaultIn
 
 case class GeneratorScala( identifier : Identifier, warning : Vector[GeneratorWarning], text : String )
 
-
-type Transpiler    = Function4[List[Identifier], Identifier, GeneratorExtras, GeneratorSource, GeneratorScala]
-type Generator[-A] = Function1[A,String]
-type BlockPrinter  = Function0[String]
+type Transpiler           = Function4[List[Identifier], Identifier, GeneratorExtras, GeneratorSource, GeneratorScala]
+type Generator[-A, +B]    = Function1[A,Result[B]]
+type BlockPrinter         = Function0[String]
+type OutputTransformer[A] = Function1[Result[A],Result[A]]
 
 val DefaultTranspiler : Transpiler = defaultTranspile
 
