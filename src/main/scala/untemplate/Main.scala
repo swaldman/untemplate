@@ -4,13 +4,13 @@ import java.nio.file.{Files, Path}
 import scopt.OParser
 import zio.*
 
-private val GeneratorScalaPrefix = "untemplate_"
+private val UntemplateScalaPrefix = "untemplate_"
 
 object Main extends zio.ZIOAppDefault {
   final case class Opts (
     source  : Path            = Path.of("."),
     dest    : Path            = null,
-    extras  : GeneratorExtras = GeneratorExtras.empty,
+    extras  : UntemplateExtras = UntemplateExtras.empty,
     flatten : Boolean         = false
   )
 
@@ -63,7 +63,7 @@ object Main extends zio.ZIOAppDefault {
     ZIO.attemptBlocking( pkgSources.map( _.pkg ).foreach(createPackageDir) )
 
 
-  def genScalaSources(dest : Path, pkgSources : Set[PackageSource], extras : GeneratorExtras, flatten : Boolean) : ZIO[Any, Throwable, Unit] =
+  def genScalaSources(dest : Path, pkgSources : Set[PackageSource], extras : UntemplateExtras, flatten : Boolean) : ZIO[Any, Throwable, Unit] =
     def flattenEnsureNoDups( outputFileNames : List[String] ) : Unit =
       if (flatten)
         val dups = outputFileNames.groupBy(identity).collect{ case (x, ys) if ys.tail.nonEmpty => x }
@@ -73,17 +73,17 @@ object Main extends zio.ZIOAppDefault {
             "identifiers and therefore filenames were generated, causing some templates to be overwritten. Duplicated file names: " +
               dups.mkString(", ")
           )
-    def generateForGeneratorInPackage(generatorSourceName : String, pkgSource : PackageSource) : ZIO[Any, Throwable, String] =
+    def generateForUntemplateInPackage(untemplateSourceName : String, pkgSource : PackageSource) : ZIO[Any, Throwable, String] =
       val destDirPath = if (flatten) dest else dest.resolve(path(pkgSource.pkg))
-      val defaultFunctionIdentifier = generatorSourceNameToIdentifier(generatorSourceName)
+      val defaultFunctionIdentifier = untemplateSourceNameToIdentifier(untemplateSourceName)
       for
-        generatorSource <- pkgSource.generatorSource(generatorSourceName)
-        generatorScala  =  DefaultTranspiler(pkgSource.pkg,defaultFunctionIdentifier,extras,generatorSource)
-        outFileName     = s"${GeneratorScalaPrefix}${generatorScala.identifier}.scala"
-        _               <- ZIO.attemptBlocking( Files.writeString(destDirPath.resolve(Path.of(outFileName)), generatorScala.text.toString, scala.io.Codec.UTF8.charSet) )
+        untemplateSource <- pkgSource.untemplateSource(untemplateSourceName)
+        untemplateScala  =  DefaultTranspiler(pkgSource.pkg,defaultFunctionIdentifier,extras,untemplateSource)
+        outFileName     = s"${UntemplateScalaPrefix}${untemplateScala.identifier}.scala"
+        _               <- ZIO.attemptBlocking( Files.writeString(destDirPath.resolve(Path.of(outFileName)), untemplateScala.text.toString, scala.io.Codec.UTF8.charSet) )
       yield (outFileName)
     def generateForPackageSource(pkgSource : PackageSource) : ZIO[Any,Throwable,Unit] =
-      val generations = pkgSource.generatorSourceNames.map( sourceName => generateForGeneratorInPackage(sourceName, pkgSource) )
+      val generations = pkgSource.untemplateSourceNames.map( sourceName => generateForUntemplateInPackage(sourceName, pkgSource) )
       val withFileNameList = ZIO.mergeAll(generations)( List.empty[String] )( (accum, next) => next :: accum )
       withFileNameList.map( flattenEnsureNoDups )
     ZIO.mergeAll(pkgSources.map(generateForPackageSource))( () )( (_:Unit,_:Unit) => () )

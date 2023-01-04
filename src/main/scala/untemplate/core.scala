@@ -10,17 +10,17 @@ private val DotSuffixLen = DotSuffix.length
 
 case class Result[+A](mbMetadata : Option[A], text : String )
 
-opaque type GeneratorSource  = Vector[String]
-opaque type GeneratorWarning = String
+opaque type UntemplateSource  = Vector[String]
+opaque type UntemplateWarning = String
 
-object GeneratorExtras:
-  val empty = new GeneratorExtras(None, None, Vector.empty)
-case class GeneratorExtras( mbDefaultInputName : Option[Identifier], mbDefaultInputType : Option[String], extraImports : Vector[String])
+object UntemplateExtras:
+  val empty = new UntemplateExtras(None, None, Vector.empty)
+case class UntemplateExtras( mbDefaultInputName : Option[Identifier], mbDefaultInputType : Option[String], extraImports : Vector[String])
 
-case class GeneratorScala( identifier : Identifier, warning : Vector[GeneratorWarning], text : String )
+case class UntemplateScala( identifier : Identifier, warning : Vector[UntemplateWarning], text : String )
 
-type Transpiler           = Function4[List[Identifier], Identifier, GeneratorExtras, GeneratorSource, GeneratorScala]
-type Generator[-A, +B]    = Function1[A,Result[B]]
+type Transpiler           = Function4[List[Identifier], Identifier, UntemplateExtras, UntemplateSource, UntemplateScala]
+type Untemplate[-A, +B]   = Function1[A,Result[B]]
 type BlockPrinter         = Function0[String]
 type OutputTransformer[A] = Function1[Result[A],Result[A]]
 
@@ -34,11 +34,11 @@ val DefaultTranspiler : Transpiler = defaultTranspile
 
 // val EmbeddedExpressionDelimiter = "<()>"
 
-case class GeneratorSourceMetadata( mbLastModMetaOption : Option[Long] )
+case class UntemplateSourceMetadata( mbLastModMetaOption : Option[Long] )
 
-private def asGeneratorSource(vs : Vector[String]) : GeneratorSource = vs
+private def asUntemplateSource(vs : Vector[String]) : UntemplateSource = vs
 
-extension (ts : GeneratorSource )
+extension (ts : UntemplateSource )
   def lines : Vector[String] = ts
   def textLen : Int = lines.foldLeft(0)( (accum, next) => accum + next.length ) + lines.length * codegenutil.LineSep.length
 

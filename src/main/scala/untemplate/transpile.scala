@@ -19,11 +19,11 @@ private val K128 = 128 * 1024
 private val K16  =  16 * 1024
 
 
-private final case class TranspileData1(source : GeneratorSource, spaceNormalized : Vector[String], indentLevels : Vector[Int])
-private final case class TranspileData2(last : TranspileData1, hasHeader : Boolean, mbInputName : Option[String], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideGeneratorName : Option[String], textBlockInfos : Vector[TextBlockInfo])
+private final case class TranspileData1(source : UntemplateSource, spaceNormalized : Vector[String], indentLevels : Vector[Int])
+private final case class TranspileData2(last : TranspileData1, hasHeader : Boolean, mbInputName : Option[String], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideUntemplateName : Option[String], textBlockInfos : Vector[TextBlockInfo])
 private final case class TranspileData3(last : TranspileData2, headerInfo : Option[HeaderInfo], nonheaderBlocks : Vector[ParseBlock])
 
-private case class HeaderInfo(mbInputName : Option[Identifier], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideGeneratorName : Option[Identifier], headerBlock : ParseBlock.Code)
+private case class HeaderInfo(mbInputName : Option[Identifier], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideUntemplateName : Option[Identifier], headerBlock : ParseBlock.Code)
 private final case class TextBlockInfo(functionName : Option[String], startDelimeter : Option[Int], stopDelimeter : Option[Int])
 
 private object ParseBlock:
@@ -42,7 +42,7 @@ private def prefixTabSpaceToSpaces(spacesPerTab : Int, line : String) : String =
   val spacified = tabs.getBytes(scala.io.Codec.UTF8.charSet).map(replace).mkString
   spacified + rest
 
-private def untabAndCountSpaces( gs : GeneratorSource )(using ui : UnitIndent) : TranspileData1 =
+private def untabAndCountSpaces( gs : UntemplateSource )(using ui : UnitIndent) : TranspileData1 =
   val indents = Array.ofDim[Int](gs.lines.length)
   val oldLines = gs.lines
   val newLines = mutable.Buffer.empty[String]
@@ -57,7 +57,7 @@ private def untabAndCountSpaces( gs : GeneratorSource )(using ui : UnitIndent) :
 private object LineDelimeter:
   // object Header:
   //   def apply(str: String) : Header = if str == null || str.isEmpty then Header(None) else Header(Some(str))
-  case class Header(mbInputName : Option[String], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideGeneratorName : Option[String]) extends LineDelimeter
+  case class Header(mbInputName : Option[String], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideUntemplateName : Option[String]) extends LineDelimeter
   object Start:
     def apply(str : String) : Start = if str == null || str.isEmpty then Start(None) else Start(Some(str))
   case class Start(functionName : Option[String]) extends LineDelimeter
@@ -87,13 +87,13 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
   for( i <- 0 until td1.indentLevels.length) // indentLevels.length is also the line length
     if td1.indentLevels(i) == 0 then
       td1.source.lines(i) match {
-        case AnchoredHeaderDelimeterRegex(inputNameType, outputMetadataType, generatorNameDotFunctionName) =>
+        case AnchoredHeaderDelimeterRegex(inputNameType, outputMetadataType, untemplateNameDotFunctionName) =>
           // println("SAW HEADER DELIMETER")
-          val (overrideGeneratorName, functionName)  = carveAroundDelimeterChar(generatorNameDotFunctionName, '.', trim = true)
+          val (overrideUntemplateName, functionName) = carveAroundDelimeterChar(untemplateNameDotFunctionName, '.', trim = true)
           val (inputName, inputTypeWithMbDefaultArg) = carveAroundDelimeterChar(inputNameType, ':', trim = true)
           val (inputType, inputDefaultArg)           = carveAroundDelimeterChar(inputTypeWithMbDefaultArg.getOrElse(""), '=', trim = true)
           if headerTuple == None then
-            headerTuple = Some(Tuple2(i, LineDelimeter.Header(nonEmptyStringOption(inputName), nonEmptyStringOption(inputType), nonEmptyStringOption(inputDefaultArg), nonEmptyStringOption(outputMetadataType), overrideGeneratorName)))
+            headerTuple = Some(Tuple2(i, LineDelimeter.Header(nonEmptyStringOption(inputName), nonEmptyStringOption(inputType), nonEmptyStringOption(inputDefaultArg), nonEmptyStringOption(outputMetadataType), overrideUntemplateName)))
             parseTuples += Tuple2(i, LineDelimeter.Start(functionName))
           else
             throw new ParseException(s"Duplicate header delimeter at line ${i}")
@@ -134,11 +134,11 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
   }
 
   // okay... apparently we have alternating sections. Let's build our output
-  val (mbInputName : Option[String], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideGeneratorName : Option[String]) =
+  val (mbInputName : Option[String], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideUntemplateName : Option[String]) =
     headerTuple match
       case Some(tup) =>
         val ldHeader = tup(1)
-        (ldHeader.mbInputName, ldHeader.mbInputType, ldHeader.mbInputDefaultArg, ldHeader.mbOutputMetadataType, ldHeader.mbOverrideGeneratorName)
+        (ldHeader.mbInputName, ldHeader.mbInputType, ldHeader.mbInputDefaultArg, ldHeader.mbOutputMetadataType, ldHeader.mbOverrideUntemplateName)
       case None =>
         (None, None, None, None, None)
 
@@ -168,7 +168,7 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
         else None
       textBlockInfos.addOne(TextBlockInfo(functionName,Some(start),end))
     }
-    TranspileData2( td1, headerTuple.nonEmpty, mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideGeneratorName, textBlockInfos.result() )
+    TranspileData2( td1, headerTuple.nonEmpty, mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateName, textBlockInfos.result() )
   else
     TranspileData2( td1, false, None, None, None, None, None, Vector.empty )
 
@@ -186,10 +186,10 @@ private def collectBlocksNonEmpty( td2 : TranspileData2 ) : TranspileData3 =
   val mbInputType                           = td2.mbInputType
   val mbInputDefaultArg                     = td2.mbInputDefaultArg
   val mbOutputMetadataType                  = td2.mbOutputMetadataType
-  val mbOverrideGeneratorNameIdentifier     = td2.mbOverrideGeneratorName.map( toIdentifier )
+  val mbOverrideUntemplateNameIdentifier     = td2.mbOverrideUntemplateName.map( toIdentifier )
   var headerBlock : Option[ParseBlock.Code] = None
 
-  // for text, we take from unmodified GeneratorSource.
+  // for text, we take from unmodified UntemplateSource.
   // in other words, don't mess with tabs and spaces
   val unmodifiedLines = td2.last.source.lines
 
@@ -226,7 +226,7 @@ private def collectBlocksNonEmpty( td2 : TranspileData2 ) : TranspileData3 =
 
   val nonheaderBlocks = blocksBuilder.result()
   val mbHeaderInfo =
-    headerBlock.map(hblock => HeaderInfo(mbInputNameIdentifier, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideGeneratorNameIdentifier, hblock))
+    headerBlock.map(hblock => HeaderInfo(mbInputNameIdentifier, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateNameIdentifier, hblock))
 
   TranspileData3( td2, mbHeaderInfo : Option[HeaderInfo], nonheaderBlocks )
 
@@ -287,28 +287,28 @@ private def partitionHeaderBlock( text : String ) : PartitionedHeaderBlock =
   val otherLastIndent = nonImportsTuple(1).lastOption.fold( 0 )( _.takeWhile(_ == ' ').length )
   PartitionedHeaderBlock(packageText, importsText, otherHeaderText, otherLastIndent)
 
-private def transpileToWriter(pkg : List[Identifier], defaultGeneratorName : Identifier, generatorExtras : GeneratorExtras, src : GeneratorSource, w : Writer) : Identifier =
+private def transpileToWriter(pkg : List[Identifier], defaultUntemplateName : Identifier, untemplateExtras : UntemplateExtras, src : UntemplateSource, w : Writer) : Identifier =
   val td1 = untabAndCountSpaces( src )
   val td2 = basicParse( td1 )
   val td3 = collectBlocks( td2 )
   // println(td3)
-  // println(s"headerInfo[${generatorName}] >>> " + td3.headerInfo)
-  val (mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideGeneratorName, mbPartitionedHeaderBlock) =
+  // println(s"headerInfo[${untemplateName}] >>> " + td3.headerInfo)
+  val (mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateName, mbPartitionedHeaderBlock) =
     td3.headerInfo match
-      case Some( HeaderInfo( mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideGeneratorName, headerBlock ) ) => (mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideGeneratorName, Some(partitionHeaderBlock(headerBlock.text)))
+      case Some( HeaderInfo( mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateName, headerBlock ) ) => (mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateName, Some(partitionHeaderBlock(headerBlock.text)))
       case None                                                                                                                          => (None, None, None, None, None, None)
 
-  val inputName : Identifier = (mbInputName orElse generatorExtras.mbDefaultInputName).getOrElse( BackstopInputNameIdentifier )
+  val inputName : Identifier = (mbInputName orElse untemplateExtras.mbDefaultInputName).getOrElse( BackstopInputNameIdentifier )
 
-  val (inputType : String, byDefault : Boolean) = (mbInputType orElse generatorExtras.mbDefaultInputType).map( it => Tuple2(it,false) ).getOrElse( Tuple2(DefaultInputType,true) )
+  val (inputType : String, byDefault : Boolean) = (mbInputType orElse untemplateExtras.mbDefaultInputType).map( it => Tuple2(it,false) ).getOrElse( Tuple2(DefaultInputType,true) )
 
   val inputDefaultArgClause  : String     = if byDefault then " = " + DefaultInputDefaultArg else mbInputDefaultArg.map( ida => " = " + ida ).getOrElse("")
   val outputMetadataType     : String     = (mbOutputMetadataType).getOrElse(DefaultOutputMetadataType)
-  val generatorName          : Identifier = (mbOverrideGeneratorName).getOrElse(defaultGeneratorName)
+  val untemplateName          : Identifier = (mbOverrideUntemplateName).getOrElse(defaultUntemplateName)
 
   val textBlocks = td3.nonheaderBlocks.collect { case b : ParseBlock.Text => b }
 
-  val helperName = toIdentifier(s"Helper_${generatorName}")
+  val helperName = toIdentifier(s"Helper_${untemplateName}")
 
   mbPartitionedHeaderBlock.flatMap( _.packageText ) match
     case Some(text) => w.writeln(text)
@@ -320,8 +320,8 @@ private def transpileToWriter(pkg : List[Identifier], defaultGeneratorName : Ide
   w.writeln("import java.io.{Writer,StringWriter}")
   w.writeln("import scala.collection.*")
   w.writeln()
-  if (generatorExtras.extraImports.nonEmpty)
-    generatorExtras.extraImports.foreach { line =>
+  if (untemplateExtras.extraImports.nonEmpty)
+    untemplateExtras.extraImports.foreach { line =>
       val tl = line.trim
       if tl.startsWith("import") then
         w.writeln(tl)
@@ -352,27 +352,27 @@ private def transpileToWriter(pkg : List[Identifier], defaultGeneratorName : Ide
 //  w.indentln(0)(s"end ${helperName}")
 //  w.writeln()
   val argList = s"(${inputName} : ${inputType}${inputDefaultArgClause})"
-  val functionObjectName = s"Function_${generatorName}"
+  val functionObjectName = s"Function_${untemplateName}"
   val fullReturnType = s"untemplate.Result[${outputMetadataType}]"
   val defaultArg = inputDefaultArgClause.dropWhile(c => c == ' ' || c == '=')
   val embeddableDefaultArg = if (defaultArg.isEmpty) "(None : Option[String])" else s"""Some("${defaultArg}")"""
   w.indentln(0)(s"val ${functionObjectName} = new Function1[${inputType},${fullReturnType}]:")
   w.indentln(1)( """val UntemplateFunction             = this""")
-  w.indentln(1)(s"""val UntemplateName                 = "${generatorName}"""")
+  w.indentln(1)(s"""val UntemplateName                 = "${untemplateName}"""")
   w.indentln(1)(s"""val UntemplateInputName            = "${inputName}"""")
   w.indentln(1)(s"""val UntemplateInputType            = "${inputType}"""")
   w.indentln(1)(s"""val UntemplateInputDefaultArgument = ${embeddableDefaultArg}""")
   w.indentln(1)(s"""val UntemplateOutputMetadataType   = "${outputMetadataType}"""")
   w.writeln()
   w.indentln(1)(s"def apply${argList} : ${fullReturnType} =")
-  w.indentln(2)(generatorBody(td3, inputName, inputType, outputMetadataType, blockPrinterTups, mbPartitionedHeaderBlock))
+  w.indentln(2)(untemplateBody(td3, inputName, inputType, outputMetadataType, blockPrinterTups, mbPartitionedHeaderBlock))
   w.indentln(1)(s"end apply")
   w.indentln(0)(s"end ${functionObjectName}")
   w.writeln()
-  w.indentln(0)(s"def ${generatorName}${argList} : ${fullReturnType} = ${functionObjectName}( ${inputName} )")
-  generatorName
+  w.indentln(0)(s"def ${untemplateName}${argList} : ${fullReturnType} = ${functionObjectName}( ${inputName} )")
+  untemplateName
 
-private def generatorBody( td3 : TranspileData3, inputName : Identifier, inputType : String, outputMetadataType : String, blockPrinterTups : Vector[Tuple3[String,Option[Identifier],String]], mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock] )(using ui : UnitIndent) : String =
+private def untemplateBody( td3 : TranspileData3, inputName : Identifier, inputType : String, outputMetadataType : String, blockPrinterTups : Vector[Tuple3[String,Option[Identifier],String]], mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock] )(using ui : UnitIndent) : String =
   val origTextLen = td3.last.last.source.textLen
 
   val w = new StringWriter(K16) // XXX: Hardcoded initial capacity
@@ -429,8 +429,8 @@ private def generatorBody( td3 : TranspileData3, inputName : Identifier, inputTy
   w.indentln(0)("outputTransformer( untemplate.Result( mbMetadata, writer.toString ) )")
   w.toString
 
-private def defaultTranspile( pkg : List[Identifier], defaultGeneratorName : Identifier, generatorExtras : GeneratorExtras, src : GeneratorSource ) : GeneratorScala =
+private def defaultTranspile( pkg : List[Identifier], defaultUntemplateName : Identifier, untemplateExtras : UntemplateExtras, src : UntemplateSource ) : UntemplateScala =
   val w = new StringWriter(K16) // XXX: hardcoded initial buffer length, should we examine src?
-  val generatorName = transpileToWriter(pkg, defaultGeneratorName, generatorExtras, src, w)
-  GeneratorScala(generatorName, Vector.empty, w.toString)
+  val untemplateName = transpileToWriter(pkg, defaultUntemplateName, untemplateExtras, src, w)
+  UntemplateScala(untemplateName, Vector.empty, w.toString)
 

@@ -2,7 +2,7 @@ package untemplate
 
 opaque type Identifier = String
 
-def generatorSourceNameToIdentifier( sourceName : String ) : Identifier =
+def untemplateSourceNameToIdentifier( sourceName : String ) : Identifier =
   val noSuffix =
     if sourceName.endsWith(DotSuffix) then
       sourceName.substring(0, sourceName.length - DotSuffixLen)

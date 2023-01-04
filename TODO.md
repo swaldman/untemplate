@@ -28,6 +28,4 @@
    * Maybe extra imports by the same discriminator?
    * CustomizerKey?
    * Update docs about uselessness of Metainformation...
- * Refactorings
-   * instead of `Generator` (all over the place!), use more straightforward `Untemplate`
  * "Feature creep" docs: OutputTransformer, long delimeters
