@@ -249,9 +249,9 @@ private def rawTextToSourceConcatenatedLiteralsAndExpressions( text : String ) :
     val textBit = text.substring(nextStart, nextEnd)
     val unescapedTextBit = unescapeUntemplateDelimeters(textBit)
     sb.append(formatAsciiScalaStringLiteral(unescapedTextBit))
-    sb.append(" + ")
+    sb.append(" + (")
     sb.append( expression )
-    sb.append(" +")
+    sb.append(") +")
     sb.append(LineSep)
     nextStart = mi.end
   val lastTextBit = text.substring(nextStart)
@@ -392,8 +392,9 @@ private def generatorBody( td3 : TranspileData3, inputName : Identifier, inputTy
   // w.writeln()
 
   // w.writeln("val scratchpad : mutable.Map[String,Any] = mutable.Map.empty[String,Any]")
-  w.writeln(s"val writer     : StringWriter = new StringWriter(${origTextLen*2})")
-  w.writeln(s"var mbMetadata : Option[${outputMetadataType}] = None")
+  w.writeln(s"val writer             : StringWriter = new StringWriter(${origTextLen*2})")
+  w.writeln(s"var mbMetadata         : Option[${outputMetadataType}] = None")
+  w.writeln(s"var outputTransformer  : Function1[untemplate.Result[${outputMetadataType}],untemplate.Result[${outputMetadataType}]] = identity")
   w.writeln()
 
   // header first
@@ -424,7 +425,7 @@ private def generatorBody( td3 : TranspileData3, inputName : Identifier, inputTy
             w.indentln(lastIndentLevel + 1)(s"writer.write(block${textBlockCount}())${LineSep}")
         textBlockCount += 1
   }
-  w.indentln(0)("untemplate.Result( mbMetadata, writer.toString )")
+  w.indentln(0)("outputTransformer( untemplate.Result( mbMetadata, writer.toString ) )")
   w.toString
 
 private def defaultTranspile( pkg : List[Identifier], defaultGeneratorName : Identifier, generatorExtras : GeneratorExtras, src : GeneratorSource ) : GeneratorScala =
