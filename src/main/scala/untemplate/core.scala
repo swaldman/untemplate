@@ -34,6 +34,8 @@ val DefaultTranspiler : Transpiler = defaultTranspile
 
 // val EmbeddedExpressionDelimiter = "<()>"
 
+case class GeneratorSourceMetadata( mbLastModMetaOption : Option[Long] )
+
 private def asGeneratorSource(vs : Vector[String]) : GeneratorSource = vs
 
 extension (ts : GeneratorSource )

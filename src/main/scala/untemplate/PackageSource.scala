@@ -20,9 +20,11 @@ object PackageSource:
       val untemplatePaths = allFilePaths.filter(path => Files.isRegularFile(path) && path.toString.endsWith(DotSuffix))
       val generatorSourceNameVec = untemplatePaths.map( _.getFileName.toString )
       val generatorSourceNamesToPaths = Map(generatorSourceNameVec.zip(untemplatePaths): _*)
+      val generatorSourceMetadata : String => Task[GeneratorSourceMetadata] =
+        generatorSourceName => ZIO.attemptBlocking( GeneratorSourceMetadata(Some(Files.getLastModifiedTime(generatorSourceNamesToPaths(generatorSourceName)).toMillis)) )
       val generatorSource: String => Task[GeneratorSource] =
         generatorSourceName => ZIO.attemptBlocking(asGeneratorSource(Files.readAllLines(generatorSourceNamesToPaths(generatorSourceName), codec.charSet).asScala.toVector))
-      PackageSource(pkg, generatorSourceNameVec, generatorSource)
+      PackageSource(pkg, generatorSourceNameVec, generatorSourceMetadata, generatorSource)
     }
 
   def fromBaseDirectoryRecursive(baseDirPath : Path, codec : Codec = Codec.UTF8 ) : Task[Set[PackageSource]] =
@@ -34,4 +36,9 @@ object PackageSource:
     yield
       pkgSourceSet.filter( _.generatorSourceNames.nonEmpty /* || scalaSourceNames.nonEmpty */ )
 
-case class PackageSource(pkg : List[Identifier], generatorSourceNames : Vector[String], generatorSource : String => Task[GeneratorSource])
+case class PackageSource (
+  pkg                     : List[Identifier],
+  generatorSourceNames    : Vector[String],
+  generatorSourceMetadata : String => Task[GeneratorSourceMetadata],
+  generatorSource         : String => Task[GeneratorSource]
+)
