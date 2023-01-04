@@ -3,7 +3,6 @@ package untemplate
 import java.io.{Writer,StringWriter}
 import scala.collection.*
 import com.mchange.sc.v2.literal.StringLiteral.formatAsciiScalaStringLiteral
-import scala.jdk.StreamConverters.StreamHasToScala
 
 import com.mchange.codegenutil.*
 
@@ -276,7 +275,7 @@ private final case class PartitionedHeaderBlock(packageText : Option[String], im
 
 private def partitionHeaderBlock( text : String ) : PartitionedHeaderBlock =
   // println( s">>> headerBlockToPartition: ${text}" )
-  val linesTuple = text.lines.toScala(List).partition( _.trim.startsWith("import ") )
+  val linesTuple = text.linesIterator.to(List).partition( _.trim.startsWith("import ") )
   val importsText = linesTuple(0).map( _.trim ).mkString("",LineSep,LineSep)
   val nonImportsTuple = linesTuple(1).partition( _.trim.startsWith("package ") )
   val packageText =

@@ -34,11 +34,3 @@
  * Let `PackageSource` return a result, whose metadata might include `lastModified`
    to support incremental generation
  * "Feature creep" docs: OutputTransformer, long delimeters
- * Trait-ify `Result`, so we can have SimpleResult and LazyResult 
-   (for files that needn't be read)
-   * Don't forget to update the docs
-   * ```scala
-     class LazyResult[+A]( val mbMetadata : Option[+A], genText : =>String ):
-       lazy val text = genText
-       override def toString : String = text
-     ```
