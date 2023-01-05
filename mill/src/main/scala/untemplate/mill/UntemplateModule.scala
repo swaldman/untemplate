@@ -3,8 +3,9 @@ package untemplate.mill
 import mill._
 import mill.define._
 import mill.scalalib._
-import os._
 import mill.define.Source
+
+// note: expect compilation as Scala 2.13!
 
 trait UntemplateModule extends ScalaModule {
   def untemplateSource: Source = T.source {
@@ -19,15 +20,12 @@ trait UntemplateModule extends ScalaModule {
   }
 
   override def generatedSources = T {
-    super.generatedSources() ++ filesUnder(Seq(generateUntemplateScala()), ".scala")
+    super.generatedSources() ++ scalaUnder( generateUntemplateScala().path ).map(PathRef(_))
   }
 
   override def ivyDeps = T{ super.ivyDeps() ++ Agg(ivy"com.mchange::untemplate:0.0.1-SNAPSHOT") }
 
-  // modified from https://github.com/vic/mill-scalaxb/blob/master/scalaxb/src/ScalaxbModule.scala
-  private def filesUnder(path: Seq[PathRef], extension: String): Seq[PathRef] =
-    path
-      .flatMap(p => walk(p.path))
-      .filter(_.toString.endsWith(extension))
-      .map(PathRef(_))
+  // inspired by modified from https://github.com/vic/mill-scalaxb/blob/master/scalaxb/src/ScalaxbModule.scala
+  private def scalaUnder( path : os.Path ) : Seq[os.Path] =
+    os.walk(path).filter( os.isFile ).filter( _.last.endsWith(".scala") )
 }
