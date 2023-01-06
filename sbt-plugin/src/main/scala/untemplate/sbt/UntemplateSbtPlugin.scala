@@ -59,7 +59,7 @@ object UntemplateSbtPlugin extends AutoPlugin {
         throw new Exception(s"""untemplate process failed with exit code ${exit}, parsed command was: ${command.mkString(",")}""")
 
       import sbt.nio.file._
-      val files = FileTreeView.default.list(Glob(destDir) / ** / "untemplate_*.scala").collect {
+      val files = FileTreeView.default.list(Glob(destDir) / ** / "*.untemplate.scala").collect {
         case (path, attributes) if attributes.isRegularFile => path.toFile
       }
       files.toSeq

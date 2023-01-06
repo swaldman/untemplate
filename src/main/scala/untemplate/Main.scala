@@ -67,21 +67,46 @@ object Main extends zio.ZIOAppDefault {
             "identifiers and therefore filenames were generated, causing some templates to be overwritten. Duplicated file names: " +
               dups.mkString(", ")
           )
-    def generateForUntemplateInPackage(untemplateSourceName : String, pkgSource : PackageSource) : ZIO[Any, Throwable, String] =
+
+    def generateForUntemplateInPackage(untemplateSourceName : String, pkgSource : PackageSource) : ZIO[Any, Throwable, Option[String]] =
       val destDirPath = if (flatten) dest else dest.resolve(pkgSource.locationPackage.toPath)
       val defaultFunctionIdentifier = untemplateSourceNameToIdentifier(untemplateSourceName)
-      for
-        untemplateSource <- pkgSource.untemplateSource(untemplateSourceName)
-        untemplateScala  =  DefaultTranspiler(pkgSource.locationPackage,defaultFunctionIdentifier,extras,untemplateSource)
-        outFileName     = s"${UntemplateScalaPrefix}${untemplateScala.identifier}.scala"
-        _               <- ZIO.attemptBlocking( Files.writeString(destDirPath.resolve(Path.of(outFileName)), untemplateScala.text.toString, scala.io.Codec.UTF8.charSet) )
-      yield (outFileName)
+
+      // Not great, but a name knowable prior to compilation for last-mod check
+      val outFileName = s"${untemplateSourceName}.scala"
+      val outFullPath = destDirPath.resolve(Path.of(outFileName))
+
+      def doGenerateWrite: ZIO[Any, Throwable, Unit] =
+        for
+          untemplateSource <- pkgSource.untemplateSource(untemplateSourceName)
+          untemplateScala = DefaultTranspiler(pkgSource.locationPackage, defaultFunctionIdentifier, extras, untemplateSource)
+          _ <- ZIO.attemptBlocking(Files.writeString(outFullPath, untemplateScala.text.toString, scala.io.Codec.UTF8.charSet))
+        yield ()
+
+      def conditionalGenerate(mbSourceLastMod: Option[Long], mbDestLastMod: Option[Long]) =
+        if shouldUpdate(mbSourceLastMod, mbDestLastMod) then doGenerateWrite.map(_ => Some(outFileName)) else ZIO.none
+
+      val out =
+        for
+          sourceMetadata   <- pkgSource.untemplateSourceMetadata(untemplateSourceName)
+          mbSourceLastMod  =  sourceMetadata.mbLastModMetaOption
+          mbDestLastMod    =  if (Files.exists(outFullPath)) Some(Files.getLastModifiedTime(outFullPath).toMillis) else None
+          mbOutFileName    <- conditionalGenerate(mbSourceLastMod, mbDestLastMod)
+        yield
+          mbOutFileName
+      out.tap(opt =>
+        ZIO.logDebug(opt.fold(s"'${untemplateSourceName}' known to be unchanged, no scala generated.")(ofn => s"Regenerated '${ofn}' from '${untemplateSourceName}'"))
+      )
     def generateForPackageSource(pkgSource : PackageSource) : ZIO[Any,Throwable,Unit] =
       val generations = pkgSource.untemplateSourceNames.map( sourceName => generateForUntemplateInPackage(sourceName, pkgSource) )
-      val withFileNameList = ZIO.mergeAll(generations)( List.empty[String] )( (accum, next) => next :: accum )
+      val withFileNameList = ZIO.mergeAll(generations)( Nil : List[String] )( (accum, next) => next.toList ::: accum )
       withFileNameList.map( flattenEnsureNoDups )
     ZIO.mergeAll(pkgSources.map(generateForPackageSource))( () )( (_:Unit,_:Unit) => () )
 
+  def shouldUpdate( mbSourceLastMod : Option[Long], mbDestLastMod : Option[Long] ) : Boolean =
+    ( mbSourceLastMod, mbDestLastMod ) match
+      case (Some(sourceLastMod), Some(destLastMod)) => sourceLastMod > destLastMod
+      case _                                        => true
 
   def doIt( opts : Opts ) : ZIO[Any,Throwable,Unit] =
     for
