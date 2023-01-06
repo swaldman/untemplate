@@ -287,7 +287,7 @@ private def partitionHeaderBlock( text : String ) : PartitionedHeaderBlock =
   val otherLastIndent = nonImportsTuple(1).lastOption.fold( 0 )( _.takeWhile(_ == ' ').length )
   PartitionedHeaderBlock(packageText, importsText, otherHeaderText, otherLastIndent)
 
-private def transpileToWriter(pkg : List[Identifier], defaultUntemplateName : Identifier, untemplateExtras : UntemplateExtras, src : UntemplateSource, w : Writer) : Identifier =
+private def transpileToWriter(locationPackage : LocationPackage, defaultUntemplateName : Identifier, untemplateExtras : UntemplateExtras, src : UntemplateSource, w : Writer) : Identifier =
   val td1 = untabAndCountSpaces( src )
   val td2 = basicParse( td1 )
   val td3 = collectBlocks( td2 )
@@ -313,8 +313,8 @@ private def transpileToWriter(pkg : List[Identifier], defaultUntemplateName : Id
   mbPartitionedHeaderBlock.flatMap( _.packageText ) match
     case Some(text) => w.writeln(text)
     case None       =>
-      if pkg.nonEmpty then
-        w.writeln(s"""package ${pkg.mkString(".")}""")
+      if locationPackage.nonDefault then
+        w.writeln(s"""package ${locationPackage.dotty}""")
         w.writeln()
 
   w.writeln("import java.io.{Writer,StringWriter}")
@@ -429,8 +429,8 @@ private def untemplateBody( td3 : TranspileData3, inputName : Identifier, inputT
   w.indentln(0)("outputTransformer( untemplate.Result( mbMetadata, writer.toString ) )")
   w.toString
 
-private def defaultTranspile( pkg : List[Identifier], defaultUntemplateName : Identifier, untemplateExtras : UntemplateExtras, src : UntemplateSource ) : UntemplateScala =
+private def defaultTranspile( locationPackage : LocationPackage, defaultUntemplateName : Identifier, untemplateExtras : UntemplateExtras, src : UntemplateSource ) : UntemplateScala =
   val w = new StringWriter(K16) // XXX: hardcoded initial buffer length, should we examine src?
-  val untemplateName = transpileToWriter(pkg, defaultUntemplateName, untemplateExtras, src, w)
+  val untemplateName = transpileToWriter(locationPackage, defaultUntemplateName, untemplateExtras, src, w)
   UntemplateScala(untemplateName, Vector.empty, w.toString)
 

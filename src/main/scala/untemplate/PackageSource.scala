@@ -7,25 +7,31 @@ import java.nio.file.{Files,Path}
 import zio.*
 
 object PackageSource:
-  private val EmptyStringList = "" :: Nil
 
-  def fromDirectory( dirPath : Path, baseDirPath : Option[Path] = None, codec : Codec = Codec.UTF8 ) : Task[PackageSource] =
+  private def assertDirectories( paths : Iterable[Path] ) : Task[Unit] =
     ZIO.attemptBlocking {
-      val pkg =
-        val rel = baseDirPath.map( _.relativize(dirPath) ).getOrElse( dirPath.getFileName )
-        val pieces = rel.iterator().asScala.map(_.toString).toList
-        if pieces == EmptyStringList then Nil
-        else pieces.map( piece => toIdentifier(piece) ) // no pkg dir shows up as an empty string, we want an empty list
+      require(paths.forall(p => Files.isDirectory(p)), s"""dirPath and baseDirPath must be directories! Paths: ${paths.mkString(", ")}""")
+    }
+
+  private def fromDirectory( locationPackage : LocationPackage, dirPath : Path, codec : Codec ) : Task[PackageSource] =
+    ZIO.attemptBlocking {
       val allFilePaths = Files.list(dirPath).toScala(Vector)
       val untemplatePaths = allFilePaths.filter(path => Files.isRegularFile(path) && path.toString.endsWith(DotSuffix))
-      val untemplateSourceNameVec = untemplatePaths.map( _.getFileName.toString )
+      val untemplateSourceNameVec = untemplatePaths.map(_.getFileName.toString)
       val untemplateSourceNamesToPaths = Map(untemplateSourceNameVec.zip(untemplatePaths): _*)
-      val untemplateSourceMetadata : String => Task[UntemplateSourceMetadata] =
-        untemplateSourceName => ZIO.attemptBlocking( UntemplateSourceMetadata(Some(Files.getLastModifiedTime(untemplateSourceNamesToPaths(untemplateSourceName)).toMillis)) )
+      val untemplateSourceMetadata: String => Task[UntemplateSourceMetadata] =
+        untemplateSourceName => ZIO.attemptBlocking(UntemplateSourceMetadata(Some(Files.getLastModifiedTime(untemplateSourceNamesToPaths(untemplateSourceName)).toMillis)))
       val untemplateSource: String => Task[UntemplateSource] =
-        untemplateSourceName => ZIO.attemptBlocking(asUntemplateSource(Files.readAllLines(untemplateSourceNamesToPaths(untemplateSourceName), codec.charSet).asScala.toVector))
-      PackageSource(pkg, untemplateSourceNameVec, untemplateSourceMetadata, untemplateSource)
+        untemplateSourceName => ZIO.attemptBlocking(asUntemplateSource(Files.readAllLines(untemplateSourceNamesToPaths(untemplateSourceName), codec.charSet).asScala.to(Vector)))
+      PackageSource(locationPackage, untemplateSourceNameVec, untemplateSourceMetadata, untemplateSource)
     }
+
+  def fromDirectory( dirPath : Path, baseDirPath : Option[Path] = None, codec : Codec = Codec.UTF8 ) : Task[PackageSource] =
+    for
+      _               <- assertDirectories(dirPath :: baseDirPath.toList)
+      locationPackage <- LocationPackage.fromLocation( dirPath, baseDirPath )
+      packageSource   <- fromDirectory(locationPackage, dirPath, codec)
+    yield packageSource
 
   def fromBaseDirectoryRecursive(baseDirPath : Path, codec : Codec = Codec.UTF8 ) : Task[Set[PackageSource]] =
     val someBdp = Some(baseDirPath)
@@ -33,11 +39,10 @@ object PackageSource:
       dirPaths     <- ZIO.attemptBlocking(Files.walk(baseDirPath).toScala(List).filter(path => Files.isDirectory(path)))
       taskList     =  dirPaths.map(dirPath => fromDirectory( dirPath, someBdp, codec)) //List[Task[PackageSource]]
       pkgSourceSet <- ZIO.mergeAll(taskList)(Set.empty[PackageSource])( (set, pkgSource) => set + pkgSource ) : Task[Set[PackageSource]]
-    yield
-      pkgSourceSet.filter( _.untemplateSourceNames.nonEmpty /* || scalaSourceNames.nonEmpty */ )
+    yield pkgSourceSet.filter( _.untemplateSourceNames.nonEmpty )
 
 case class PackageSource (
-  pkg                     : List[Identifier],
+  locationPackage          : LocationPackage,
   untemplateSourceNames    : Vector[String],
   untemplateSourceMetadata : String => Task[UntemplateSourceMetadata],
   untemplateSource         : String => Task[UntemplateSource]

@@ -19,7 +19,7 @@ case class UntemplateExtras( mbDefaultInputName : Option[Identifier], mbDefaultI
 
 case class UntemplateScala( identifier : Identifier, warning : Vector[UntemplateWarning], text : String )
 
-type Transpiler           = Function4[List[Identifier], Identifier, UntemplateExtras, UntemplateSource, UntemplateScala]
+type Transpiler           = Function4[LocationPackage, Identifier, UntemplateExtras, UntemplateSource, UntemplateScala]
 type Untemplate[-A, +B]   = Function1[A,Result[B]]
 type BlockPrinter         = Function0[String]
 type OutputTransformer[A] = Function1[Result[A],Result[A]]

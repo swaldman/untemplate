@@ -48,19 +48,13 @@ object Main extends zio.ZIOAppDefault {
     )
   }
 
-  def path(pkg : List[Identifier]) =
-    if pkg.isEmpty then
-      Path.of(".")
-    else
-      Path.of(pkg.head.toString, pkg.tail.map( _.toString ) : _*)
-
   def loadPackageSources(source: Path) = PackageSource.fromBaseDirectoryRecursive(source)
 
   def createPackageDirs(dest: Path, pkgSources: Set[PackageSource]): ZIO[Any, Throwable, Unit] =
-    def createPackageDir(pkg : List[Identifier]) : Unit =
-      val fullPath = dest.resolve(path(pkg))
+    def createPackageDir(locationPackage : LocationPackage) : Unit =
+      val fullPath = dest.resolve(locationPackage.toPath)
       Files.createDirectories(fullPath)
-    ZIO.attemptBlocking( pkgSources.map( _.pkg ).foreach(createPackageDir) )
+    ZIO.attemptBlocking( pkgSources.map( _.locationPackage ).foreach(createPackageDir) )
 
 
   def genScalaSources(dest : Path, pkgSources : Set[PackageSource], extras : UntemplateExtras, flatten : Boolean) : ZIO[Any, Throwable, Unit] =
@@ -74,11 +68,11 @@ object Main extends zio.ZIOAppDefault {
               dups.mkString(", ")
           )
     def generateForUntemplateInPackage(untemplateSourceName : String, pkgSource : PackageSource) : ZIO[Any, Throwable, String] =
-      val destDirPath = if (flatten) dest else dest.resolve(path(pkgSource.pkg))
+      val destDirPath = if (flatten) dest else dest.resolve(pkgSource.locationPackage.toPath)
       val defaultFunctionIdentifier = untemplateSourceNameToIdentifier(untemplateSourceName)
       for
         untemplateSource <- pkgSource.untemplateSource(untemplateSourceName)
-        untemplateScala  =  DefaultTranspiler(pkgSource.pkg,defaultFunctionIdentifier,extras,untemplateSource)
+        untemplateScala  =  DefaultTranspiler(pkgSource.locationPackage,defaultFunctionIdentifier,extras,untemplateSource)
         outFileName     = s"${UntemplateScalaPrefix}${untemplateScala.identifier}.scala"
         _               <- ZIO.attemptBlocking( Files.writeString(destDirPath.resolve(Path.of(outFileName)), untemplateScala.text.toString, scala.io.Codec.UTF8.charSet) )
       yield (outFileName)
