@@ -271,21 +271,27 @@ private def rawTextToBlockPrinter( innerIndent : Int, text : String ) : String =
 
 private def rawTextToBlockPrinter( text : String )(using ui : UnitIndent) : String = rawTextToBlockPrinter( ui.toInt, text )
 
-private final case class PartitionedHeaderBlock(packageText : Option[String], importsText : String, otherHeaderText : String, otherLastIndent : Int)
+private final case class PartitionedHeaderBlock(packageOverride : Option[String], importsText : String, otherHeaderText : String, otherLastIndent : Int)
 
 private def partitionHeaderBlock( text : String ) : PartitionedHeaderBlock =
   // println( s">>> headerBlockToPartition: ${text}" )
   val linesTuple = text.linesIterator.to(List).partition( _.trim.startsWith("import ") )
   val importsText = linesTuple(0).map( _.trim ).mkString("",LineSep,LineSep)
   val nonImportsTuple = linesTuple(1).partition( _.trim.startsWith("package ") )
-  val packageText =
-    if nonImportsTuple(0).nonEmpty then
-      Some(nonImportsTuple(0).map( _.trim ).mkString("",LineSep,LineSep))
+  val packageOverride =
+    val packageLines = nonImportsTuple(0)
+    if packageLines.nonEmpty then
+      val packageComponents =
+        packageLines.map {
+          case PackageExtractRegex(pkgPath) => pkgPath
+          case line                         => throw new ParseException(s"Bad package declaration in header: '${line}''")
+        }
+      Some( joinPackageIdentifierPaths(packageComponents) )
     else
       None
   val otherHeaderText = nonImportsTuple(1).mkString("",LineSep,LineSep)
   val otherLastIndent = nonImportsTuple(1).lastOption.fold( 0 )( _.takeWhile(_ == ' ').length )
-  PartitionedHeaderBlock(packageText, importsText, otherHeaderText, otherLastIndent)
+  PartitionedHeaderBlock(packageOverride, importsText, otherHeaderText, otherLastIndent)
 
 private def transpileToWriter(locationPackage : LocationPackage, defaultUntemplateName : Identifier, untemplateExtras : UntemplateExtras, src : UntemplateSource, w : Writer) : Identifier =
   val td1 = untabAndCountSpaces( src )
@@ -306,17 +312,16 @@ private def transpileToWriter(locationPackage : LocationPackage, defaultUntempla
   val outputMetadataType     : String     = (mbOutputMetadataType).getOrElse(DefaultOutputMetadataType)
   val untemplateName          : Identifier = (mbOverrideUntemplateName).getOrElse(defaultUntemplateName)
 
+  def mbFromLocationPackage = if locationPackage.nonDefault then Some(locationPackage.dotty) else None
+
+  val mbPackagePath = mbPartitionedHeaderBlock.flatMap(_.packageOverride) orElse mbFromLocationPackage
+
   val textBlocks = td3.nonheaderBlocks.collect { case b : ParseBlock.Text => b }
 
-  val helperName = toIdentifier(s"Helper_${untemplateName}")
-
-  mbPartitionedHeaderBlock.flatMap( _.packageText ) match
-    case Some(text) => w.writeln(text)
-    case None       =>
-      if locationPackage.nonDefault then
-        w.writeln(s"""package ${locationPackage.dotty}""")
-        w.writeln()
-
+  mbPackagePath.foreach { dotpath =>
+    w.writeln(s"package ${dotpath}")
+    w.writeln()
+  }
   w.writeln("import java.io.{Writer,StringWriter}")
   w.writeln("import scala.collection.*")
   w.writeln()

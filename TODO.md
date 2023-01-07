@@ -29,3 +29,5 @@
    * CustomizerKey?
    * Update docs about uselessness of Metainformation...
  * "Feature creep" docs: OutputTransformer, long delimeters
+ * Template indexing
+

@@ -10,6 +10,21 @@ def untemplateSourceNameToIdentifier( sourceName : String ) : Identifier =
       sourceName
   toIdentifier(noSuffix)
 
+private def goodForIdentifierXXX( s : String, nonFirstPredicate : Char => Boolean ) : Boolean =
+  s.nonEmpty && Character.isJavaIdentifierStart(s.head) && s.tail.forall(nonFirstPredicate)
+
+def goodForIdentifier( s : String ) : Boolean = goodForIdentifierXXX(s, Character.isJavaIdentifierPart)
+
+def goodForPackageIdentifierPath( s : String ) : Boolean =
+  goodForIdentifierXXX(s, c => Character.isJavaIdentifierPart(c) || c == '.') && s.last != '.'
+
+def joinPackageIdentifierPaths( components : Iterable[String] ) : String =
+  components.foreach { component =>
+    if !goodForPackageIdentifierPath(component) then
+      throw new ParseException(s"Illegal component of a package idetifier path: '${component}'")
+  }
+  components.mkString(".")
+
 def toIdentifier( unrestrictedName : String ) : Identifier =
   val transformed =
     unrestrictedName.map {
