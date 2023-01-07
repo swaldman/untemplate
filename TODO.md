@@ -4,7 +4,6 @@
     - mixed tab/space prefixes
     - unescaped block delimiters not first character
     - first-character block delimeters with non-spaces on rest-of-line
-* Make scala generation incremental (ie check timestamps to limit regeneration)
 * Implement long delimeters, e.g.
   ```
   (chillOnReturnType)>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -30,4 +29,6 @@
    * Update docs about uselessness of Metainformation...
  * "Feature creep" docs: OutputTransformer, long delimeters
  * Template indexing
+ * Static site generator generator
+
 
