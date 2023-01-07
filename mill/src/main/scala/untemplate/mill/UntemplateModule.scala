@@ -5,22 +5,29 @@ import mill.define._
 import mill.scalalib._
 import mill.define.Source
 
+import untemplate._
+
 // note: expect compilation as Scala 2.13!
 
 trait UntemplateModule extends ScalaModule {
-  def untemplateSource: Source = T.source {
+  def untemplateSource : Source = T.source {
     millSourcePath / "src" / "untemplate"
   }
 
-  def generateUntemplateScala = T {
-    //println( s">>> untemplateSource: ${untemplateSource().path.toNIO}" )
-    val opts = untemplate.Main.Opts(untemplateSource().path.toNIO, T.dest.toNIO)
-    untemplate.Main.unsafeDoIt(opts)
+  def untemplateFlatten = T {
+    false
+  }
+
+  def untemplateSelectCustomizer : untemplate.Customizer.Selector =
+    untemplate.Customizer.NeverCustomize
+
+  def untemplateGenerateScala = T {
+    Untemplate.unsafeTranspileRecursive(untemplateSource().path.toNIO, T.dest.toNIO, untemplateSelectCustomizer, untemplateFlatten())
     PathRef(T.dest)
   }
 
   override def generatedSources = T {
-    super.generatedSources() ++ scalaUnder( generateUntemplateScala().path ).map(PathRef(_))
+    super.generatedSources() ++ scalaUnder( untemplateGenerateScala().path ).map(PathRef(_))
   }
 
   override def ivyDeps = T{ super.ivyDeps() ++ Agg(ivy"com.mchange::untemplate:0.0.1-SNAPSHOT") }

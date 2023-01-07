@@ -75,5 +75,10 @@ object Untemplate:
       _ <- genScalaSources(dest, pkgSources, selectCustomizer, flatten)
     yield ()
 
-type Untemplate[-A, +B]   = Function1[A,Result[B]]
+  def unsafeTranspileRecursive(source : Path, dest : Path, selectCustomizer : Customizer.Selector, flatten : Boolean) : Unit =
+    Unsafe.unsafe { implicit unsafe =>
+      Runtime.default.unsafe.run(transpileRecursive(source, dest, selectCustomizer, flatten)).getOrThrowFiberFailure()
+    }
+
+abstract class Untemplate[-A, +B] extends Function1[A,Result[B]]
 

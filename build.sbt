@@ -1,6 +1,8 @@
 ThisBuild / organization := "com.mchange"
 ThisBuild / version      := "0.0.1-SNAPSHOT"
 
+val ZIOVersion = "2.0.5"
+
 lazy val root = project
   .in(file("."))
   .enablePlugins(JavaAppPackaging)
@@ -9,7 +11,7 @@ lazy val root = project
     scalaVersion        := "3.2.1",
     // scalacOptions       += "-explain",
     resolvers           += Resolver.mavenLocal,
-    libraryDependencies += "dev.zio" %% "zio" % "2.0.5",
+    libraryDependencies += "dev.zio" %% "zio" % ZIOVersion,
     libraryDependencies += "com.github.scopt" %% "scopt" % "4.1.0",
     libraryDependencies += "com.mchange" %% "literal" % "0.1.1-SNAPSHOT",
     libraryDependencies += "com.mchange" %% "codegenutil" % "0.0.1-SNAPSHOT"
@@ -43,7 +45,7 @@ lazy val mill = project
     scalacOptions       += "-Ytasty-reader",
     resolvers += Resolver.mavenLocal,
     libraryDependencies += "com.lihaoyi" %% "mill-main" % MillVersion,
-    libraryDependencies += "com.lihaoyi" %% "mill-scalalib" % MillVersion,
+    libraryDependencies += "com.lihaoyi" %% "mill-scalalib" % MillVersion
   )
 
 

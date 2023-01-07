@@ -401,10 +401,10 @@ private def transpileToWriter (
 //  w.indentln(0)(s"end ${helperName}")
 //  w.writeln()
   val argList = s"(${inputName} : ${inputType}${inputDefaultArgClause})"
-  val functionObjectName = s"Function_${untemplateName}"
+  val functionObjectName = s"Untemplate${untemplateName}"
   val fullReturnType = s"untemplate.Result[${perhapsCustomizedOutputMetadataType}]"
   val embeddableDefaultArg = mbDefaultArg.fold("(None : Option[String])")(defaultArg => s"""Some("${defaultArg}")""")
-  w.indentln(0)(s"val ${functionObjectName} = new Function1[${inputType},${fullReturnType}]:")
+  w.indentln(0)(s"val ${functionObjectName} = new Untemplate[${inputType},${fullReturnType}]:")
   w.indentln(1)( """val UntemplateFunction             = this""")
   w.indentln(1)(s"""val UntemplateName                 = "${untemplateName}"""")
   w.indentln(1)(s"""val UntemplateInputName            = "${inputName}"""")

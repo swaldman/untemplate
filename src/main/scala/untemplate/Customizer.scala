@@ -1,10 +1,9 @@
 package untemplate
 
 object Customizer:
-  val Skip  : Customizer = Customizer.apply()
-  val empty : Customizer = Skip
+  val empty : Customizer = Customizer()
   type Selector = Key => Customizer
-  val Never : Selector = ( _ : Key ) => Skip
+  val NeverCustomize : Selector = ( _ : Key ) => empty
   final case class Key(inferredPackage : Option[String], resolvedPackage : Option[String], inferredFunctionName : String, resolvedFunctionName : String, outputMetadataType : String)
   final case class InputTypeDefaultArg(inputType : String, mbDefaultArg : Option[String])
 
