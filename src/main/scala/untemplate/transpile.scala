@@ -14,6 +14,7 @@ private val DefaultInputType            = "immutable.Map[String,Any]"
 private val DefaultInputDefaultArg      = "immutable.Map.empty"
 private val DefaultOutputMetadataType   = "Nothing"
 private val BackstopInputNameIdentifier = toIdentifier("input")
+private val DefaultOutputTransformer    = "identity"
 
 private val K128 = 128 * 1024
 private val K16  =  16 * 1024
@@ -293,28 +294,71 @@ private def partitionHeaderBlock( text : String ) : PartitionedHeaderBlock =
   val otherLastIndent = nonImportsTuple(1).lastOption.fold( 0 )( _.takeWhile(_ == ' ').length )
   PartitionedHeaderBlock(packageOverride, importsText, otherHeaderText, otherLastIndent)
 
-private def transpileToWriter(locationPackage : LocationPackage, defaultUntemplateName : Identifier, untemplateExtras : UntemplateExtras, src : UntemplateSource, w : Writer) : Identifier =
+private def transpileToWriter (
+ locationPackage : LocationPackage,
+ defaultUntemplateName : Identifier,
+ selectCustomizer : Customizer.Selector,
+ src : UntemplateSource,
+ w : Writer,
+ warnings : mutable.Buffer[UntemplateWarning]
+) : Identifier =
   val td1 = untabAndCountSpaces( src )
   val td2 = basicParse( td1 )
   val td3 = collectBlocks( td2 )
+
   // println(td3)
   // println(s"headerInfo[${untemplateName}] >>> " + td3.headerInfo)
+
   val (mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateName, mbPartitionedHeaderBlock) =
     td3.headerInfo match
       case Some( HeaderInfo( mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateName, headerBlock ) ) => (mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateName, Some(partitionHeaderBlock(headerBlock.text)))
-      case None                                                                                                                          => (None, None, None, None, None, None)
+      case None                                                                                                                           => (None, None, None, None, None, None)
 
-  val inputName : Identifier = (mbInputName orElse untemplateExtras.mbDefaultInputName).getOrElse( BackstopInputNameIdentifier )
+  val mbFromLocationPackage = if locationPackage.nonDefault then Some(locationPackage.dotty) else None
+  val mbExplicitPackage = mbPartitionedHeaderBlock.flatMap(_.packageOverride)
+  val resolvedPackage = (mbExplicitPackage orElse mbFromLocationPackage)
 
-  val (inputType : String, byDefault : Boolean) = (mbInputType orElse untemplateExtras.mbDefaultInputType).map( it => Tuple2(it,false) ).getOrElse( Tuple2(DefaultInputType,true) )
+  val tentativeOutputMetadataType: String = (mbOutputMetadataType).getOrElse(DefaultOutputMetadataType)
+  val resolvedUntemplateName: Identifier = (mbOverrideUntemplateName).getOrElse(defaultUntemplateName)
 
-  val inputDefaultArgClause  : String     = if byDefault then " = " + DefaultInputDefaultArg else mbInputDefaultArg.map( ida => " = " + ida ).getOrElse("")
-  val outputMetadataType     : String     = (mbOutputMetadataType).getOrElse(DefaultOutputMetadataType)
-  val untemplateName          : Identifier = (mbOverrideUntemplateName).getOrElse(defaultUntemplateName)
+  val customizerKey      = Customizer.Key (
+    inferredPackage      = mbFromLocationPackage,
+    resolvedPackage      = resolvedPackage,
+    inferredFunctionName = defaultUntemplateName.toString,
+    resolvedFunctionName = resolvedUntemplateName.toString,
+    outputMetadataType   = tentativeOutputMetadataType
+  )
+  val customizer = selectCustomizer( customizerKey )
 
-  def mbFromLocationPackage = if locationPackage.nonDefault then Some(locationPackage.dotty) else None
+  val inputName : Identifier = (mbInputName orElse customizer.mbDefaultInputName.map(asIdentifier)).getOrElse( BackstopInputNameIdentifier )
 
-  val mbPackagePath = mbPartitionedHeaderBlock.flatMap(_.packageOverride) orElse mbFromLocationPackage
+  val ( inputType, mbDefaultArg ) =
+    val explicit   = mbInputType.map(tpe => Tuple2(tpe, mbInputDefaultArg))
+    val customized = (customizer.mbDefaultInputTypeDefaultArg.map(ditda => Tuple2(ditda.inputType, ditda.mbDefaultArg)))
+    val backstop   = Tuple2(DefaultInputType, Some(DefaultInputDefaultArg))
+    (explicit orElse customized).getOrElse( backstop )
+
+  val inputDefaultArgClause = mbDefaultArg.fold("")( defaultArg => " = " + defaultArg )
+
+  // None is the default package. Customizers specify that as an empty String, so we take care to convert that to None
+  val mbPackagePath = mbExplicitPackage orElse nonEmptyStringOption(customizer.mbOverrideInferredPackage) orElse mbFromLocationPackage
+
+  val untemplateName = (mbOverrideUntemplateName orElse customizer.mbOverrideInferredFunctionName.map(asIdentifier)).getOrElse(defaultUntemplateName)
+
+  val perhapsCustomizedOutputMetadataType = (mbOutputMetadataType orElse customizer.mbDefaultMetadataType).getOrElse(DefaultOutputMetadataType)
+
+  val defaultMetadataValue =
+    customizer.mbDefaultMetadataValue match
+      case Some(expr) =>
+        if expr.startsWith("Some") || expr == "None" then
+          val warning = toUntemplateWarning (
+            s"${untemplateName}: Customizer override of the default metadata value '${expr}' should not be 'None' or wrapped in Some(...) unless the metadata type is itself an option!"
+          )
+          warnings += warning
+        s"Some(${expr})"
+      case None => "None"
+
+  val defaultOutputTransformer = customizer.mbDefaultOutputTransformer.getOrElse(DefaultOutputTransformer)
 
   val textBlocks = td3.nonheaderBlocks.collect { case b : ParseBlock.Text => b }
 
@@ -325,8 +369,8 @@ private def transpileToWriter(locationPackage : LocationPackage, defaultUntempla
   w.writeln("import java.io.{Writer,StringWriter}")
   w.writeln("import scala.collection.*")
   w.writeln()
-  if (untemplateExtras.extraImports.nonEmpty)
-    untemplateExtras.extraImports.foreach { line =>
+  if (customizer.extraImports.nonEmpty)
+    customizer.extraImports.foreach { line =>
       val tl = line.trim
       if tl.startsWith("import") then
         w.writeln(tl)
@@ -358,26 +402,34 @@ private def transpileToWriter(locationPackage : LocationPackage, defaultUntempla
 //  w.writeln()
   val argList = s"(${inputName} : ${inputType}${inputDefaultArgClause})"
   val functionObjectName = s"Function_${untemplateName}"
-  val fullReturnType = s"untemplate.Result[${outputMetadataType}]"
-  val defaultArg = inputDefaultArgClause.dropWhile(c => c == ' ' || c == '=')
-  val embeddableDefaultArg = if (defaultArg.isEmpty) "(None : Option[String])" else s"""Some("${defaultArg}")"""
+  val fullReturnType = s"untemplate.Result[${perhapsCustomizedOutputMetadataType}]"
+  val embeddableDefaultArg = mbDefaultArg.fold("(None : Option[String])")(defaultArg => s"""Some("${defaultArg}")""")
   w.indentln(0)(s"val ${functionObjectName} = new Function1[${inputType},${fullReturnType}]:")
   w.indentln(1)( """val UntemplateFunction             = this""")
   w.indentln(1)(s"""val UntemplateName                 = "${untemplateName}"""")
   w.indentln(1)(s"""val UntemplateInputName            = "${inputName}"""")
   w.indentln(1)(s"""val UntemplateInputType            = "${inputType}"""")
   w.indentln(1)(s"""val UntemplateInputDefaultArgument = ${embeddableDefaultArg}""")
-  w.indentln(1)(s"""val UntemplateOutputMetadataType   = "${outputMetadataType}"""")
+  w.indentln(1)(s"""val UntemplateOutputMetadataType   = "${perhapsCustomizedOutputMetadataType}"""")
   w.writeln()
   w.indentln(1)(s"def apply${argList} : ${fullReturnType} =")
-  w.indentln(2)(untemplateBody(td3, inputName, inputType, outputMetadataType, blockPrinterTups, mbPartitionedHeaderBlock))
+  w.indentln(2)(untemplateBody(td3, inputName, inputType, perhapsCustomizedOutputMetadataType, defaultMetadataValue, defaultOutputTransformer, blockPrinterTups, mbPartitionedHeaderBlock))
   w.indentln(1)(s"end apply")
   w.indentln(0)(s"end ${functionObjectName}")
   w.writeln()
   w.indentln(0)(s"def ${untemplateName}${argList} : ${fullReturnType} = ${functionObjectName}( ${inputName} )")
   untemplateName
 
-private def untemplateBody( td3 : TranspileData3, inputName : Identifier, inputType : String, outputMetadataType : String, blockPrinterTups : Vector[Tuple3[String,Option[Identifier],String]], mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock] )(using ui : UnitIndent) : String =
+private def untemplateBody(
+  td3 : TranspileData3,
+  inputName : Identifier,
+  inputType : String,
+  outputMetadataType : String,
+  defaultMetadataValue : String,
+  defaultOutputTransformer : String,
+  blockPrinterTups : Vector[Tuple3[String,Option[Identifier],String]],
+  mbPartitionedHeaderBlock : Option[PartitionedHeaderBlock]
+)(using ui : UnitIndent) : String =
   val origTextLen = td3.last.last.source.textLen
 
   val w = new StringWriter(K16) // XXX: Hardcoded initial capacity
@@ -399,8 +451,8 @@ private def untemplateBody( td3 : TranspileData3, inputName : Identifier, inputT
 
   // w.writeln("val scratchpad : mutable.Map[String,Any] = mutable.Map.empty[String,Any]")
   w.writeln(s"val writer             : StringWriter = new StringWriter(${origTextLen*10})")
-  w.writeln(s"var mbMetadata         : Option[${outputMetadataType}] = None")
-  w.writeln(s"var outputTransformer  : Function1[untemplate.Result[${outputMetadataType}],untemplate.Result[${outputMetadataType}]] = identity")
+  w.writeln(s"var mbMetadata         : Option[${outputMetadataType}] = ${defaultMetadataValue}")
+  w.writeln(s"var outputTransformer  : Function1[untemplate.Result[${outputMetadataType}],untemplate.Result[${outputMetadataType}]] = ${defaultOutputTransformer}")
   w.writeln()
 
   // header first
@@ -434,8 +486,9 @@ private def untemplateBody( td3 : TranspileData3, inputName : Identifier, inputT
   w.indentln(0)("outputTransformer( untemplate.Result( mbMetadata, writer.toString ) )")
   w.toString
 
-private def defaultTranspile( locationPackage : LocationPackage, defaultUntemplateName : Identifier, untemplateExtras : UntemplateExtras, src : UntemplateSource ) : UntemplateScala =
+private def defaultTranspile( locationPackage : LocationPackage, defaultUntemplateName : Identifier, selectCustomizer : Customizer.Selector, src : UntemplateSource ) : UntemplateScala =
   val w = new StringWriter(K16) // XXX: hardcoded initial buffer length, should we examine src?
-  val untemplateName = transpileToWriter(locationPackage, defaultUntemplateName, untemplateExtras, src, w)
-  UntemplateScala(untemplateName, Vector.empty, w.toString)
+  val warnings = mutable.Buffer.empty[UntemplateWarning]
+  val untemplateName = transpileToWriter(locationPackage, defaultUntemplateName, selectCustomizer, src, w, warnings)
+  UntemplateScala(untemplateName, warnings.to(Vector), w.toString)
 
