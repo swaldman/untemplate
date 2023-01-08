@@ -347,6 +347,8 @@ private def transpileToWriter (
 
   val perhapsCustomizedOutputMetadataType = (mbOutputMetadataType orElse customizer.mbDefaultMetadataType).getOrElse(DefaultOutputMetadataType)
 
+  //println(">>>>> perhapsCustomizedOutputMetadataType: " + perhapsCustomizedOutputMetadataType)
+
   val defaultMetadataValue =
     customizer.mbDefaultMetadataValue match
       case Some(expr) =>
@@ -401,10 +403,10 @@ private def transpileToWriter (
 //  w.indentln(0)(s"end ${helperName}")
 //  w.writeln()
   val argList = s"(${inputName} : ${inputType}${inputDefaultArgClause})"
-  val functionObjectName = s"Untemplate${untemplateName}"
+  val functionObjectName = s"Untemplate_${untemplateName}"
   val fullReturnType = s"untemplate.Result[${perhapsCustomizedOutputMetadataType}]"
   val embeddableDefaultArg = mbDefaultArg.fold("(None : Option[String])")(defaultArg => s"""Some("${defaultArg}")""")
-  w.indentln(0)(s"val ${functionObjectName} = new Untemplate[${inputType},${fullReturnType}]:")
+  w.indentln(0)(s"val ${functionObjectName} = new untemplate.Untemplate[${inputType},${perhapsCustomizedOutputMetadataType}]:")
   w.indentln(1)( """val UntemplateFunction             = this""")
   w.indentln(1)(s"""val UntemplateName                 = "${untemplateName}"""")
   w.indentln(1)(s"""val UntemplateInputName            = "${inputName}"""")
