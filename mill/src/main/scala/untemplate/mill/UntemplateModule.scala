@@ -9,6 +9,27 @@ import untemplate._
 
 // note: expect compilation as Scala 2.13!
 
+/*
+If you get this:
+
+    error while loading Customizer, Missing dependency 'Add -Ytasty-reader to scalac options to parse the TASTy in /Users/swaldman/.ivy2/local/com.mchange/untemplate_3/0.0.1-SNAPSHOT/jars/untemplate_3.jar(untemplate/Customizer.class)', required by /Users/swaldman/.ivy2/local/com.mchange/untemplate_3/0.0.1-SNAPSHOT/jars/untemplate_3.jar(untemplate/Customizer.class)
+    /Users/swaldman/Dropbox/BaseFolders/development-why/gitproj/untemplate-doc/build.sc:30: Symbol 'type untemplate.Customizer.Selector' is missing from the classpath.
+      This symbol is required by 'method untemplate.mill.UntemplateModule.untemplateSelectCustomizer'.
+      Make sure that type Selector is in your classpath and check for conflicting dependencies with `-Ylog-classpath`.
+        A full rebuild may help if 'UntemplateModule.class' was compiled against an incompatible version of untemplate.Customizer.
+      object untemplatedocs extends UntemplateModule {
+        ^
+        Compilation Failed
+
+Add to ~/.mill/ammonite/predefScript.sc the following snippet (thank @lolgab on discord!):
+
+    interp.configureCompiler { c =>
+      val settings = c.settings
+      settings.YtastyReader.value = true
+    }
+
+*/
+
 trait UntemplateModule extends ScalaModule {
   def untemplateSource : Source = T.source {
     millSourcePath / "src" / "untemplate"
@@ -27,13 +48,13 @@ trait UntemplateModule extends ScalaModule {
   //
   // eventually mill will more easily integrate with Scala 3, and this should
   // be revisted.
-  
-  def untemplateSelectCustomizer : Any =
+
+  // def untemplateSelectCustomizer : Any =
+  def untemplateSelectCustomizer : untemplate.Customizer.Selector =
     untemplate.Customizer.NeverCustomize
 
   def untemplateGenerateScala = T {
-    val selectCustomizer = untemplateSelectCustomizer.asInstanceOf[Customizer.Selector]
-    Untemplate.unsafeTranspileRecursive(untemplateSource().path.toNIO, T.dest.toNIO, selectCustomizer, untemplateFlatten())
+    Untemplate.unsafeTranspileRecursive(untemplateSource().path.toNIO, T.dest.toNIO, untemplateSelectCustomizer, untemplateFlatten())
     PathRef(T.dest)
   }
 

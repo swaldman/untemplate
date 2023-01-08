@@ -18,7 +18,7 @@ def toUntemplateWarning( s : String ) : UntemplateWarning = s
 
 case class UntemplateScala( identifier : Identifier, warning : Vector[UntemplateWarning], text : String )
 
-type Transpiler           = Function4[LocationPackage, Identifier, Customizer.Selector, UntemplateSource, UntemplateScala]
+type Transpiler           = Function5[LocationPackage, Identifier, Customizer.Selector, UntemplateSource, Option[String], UntemplateScala]
 type BlockPrinter         = Function0[String]
 type OutputTransformer[A] = Function1[Result[A],Result[A]]
 

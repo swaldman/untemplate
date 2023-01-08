@@ -37,8 +37,8 @@ object Untemplate:
       def doGenerateWrite: ZIO[Any, Throwable, Unit] =
         for
           untemplateSource <- pkgSource.untemplateSource(untemplateSourceName)
-          untemplateScala = DefaultTranspiler(pkgSource.locationPackage, defaultFunctionIdentifier, selectCustomizer, untemplateSource)
-          _ <- ZIO.attemptBlocking(Files.writeString(outFullPath, untemplateScala.text.toString, scala.io.Codec.UTF8.charSet))
+          untemplateScala = DefaultTranspiler(pkgSource.locationPackage, defaultFunctionIdentifier, selectCustomizer, untemplateSource, Some(untemplateSourceName))
+          _ <- ZIO.attemptBlocking(Files.writeString(outFullPath, untemplateScala.text, scala.io.Codec.UTF8.charSet))
         yield ()
 
       def conditionalGenerate(mbSourceLastMod: Option[Long], mbDestLastMod: Option[Long]) =

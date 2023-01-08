@@ -295,12 +295,13 @@ private def partitionHeaderBlock( text : String ) : PartitionedHeaderBlock =
   PartitionedHeaderBlock(packageOverride, importsText, otherHeaderText, otherLastIndent)
 
 private def transpileToWriter (
- locationPackage : LocationPackage,
- defaultUntemplateName : Identifier,
- selectCustomizer : Customizer.Selector,
- src : UntemplateSource,
- w : Writer,
- warnings : mutable.Buffer[UntemplateWarning]
+  locationPackage       : LocationPackage,
+  defaultUntemplateName : Identifier,
+  selectCustomizer      : Customizer.Selector,
+  src                   : UntemplateSource,
+  srcIdentifier         : Option[String],
+  w                     : Writer,
+  warnings              : mutable.Buffer[UntemplateWarning]
 ) : Identifier =
   val td1 = untabAndCountSpaces( src )
   val td2 = basicParse( td1 )
@@ -322,11 +323,12 @@ private def transpileToWriter (
   val resolvedUntemplateName: Identifier = (mbOverrideUntemplateName).getOrElse(defaultUntemplateName)
 
   val customizerKey      = Customizer.Key (
-    inferredPackage      = mbFromLocationPackage,
-    resolvedPackage      = resolvedPackage,
+    inferredPackage      = mbFromLocationPackage.getOrElse(""),
+    resolvedPackage      = resolvedPackage.getOrElse(""),
     inferredFunctionName = defaultUntemplateName.toString,
     resolvedFunctionName = resolvedUntemplateName.toString,
-    outputMetadataType   = tentativeOutputMetadataType
+    outputMetadataType   = tentativeOutputMetadataType,
+    sourceIdentifier     = srcIdentifier
   )
   val customizer = selectCustomizer( customizerKey )
 
@@ -488,9 +490,15 @@ private def untemplateBody(
   w.indentln(0)("outputTransformer( untemplate.Result( mbMetadata, writer.toString ) )")
   w.toString
 
-private def defaultTranspile( locationPackage : LocationPackage, defaultUntemplateName : Identifier, selectCustomizer : Customizer.Selector, src : UntemplateSource ) : UntemplateScala =
+private def defaultTranspile(
+  locationPackage       : LocationPackage,
+  defaultUntemplateName : Identifier,
+  selectCustomizer      : Customizer.Selector,
+  src                   : UntemplateSource,
+  srcIdentifier         : Option[String]
+) : UntemplateScala =
   val w = new StringWriter(K16) // XXX: hardcoded initial buffer length, should we examine src?
   val warnings = mutable.Buffer.empty[UntemplateWarning]
-  val untemplateName = transpileToWriter(locationPackage, defaultUntemplateName, selectCustomizer, src, w, warnings)
+  val untemplateName = transpileToWriter(locationPackage, defaultUntemplateName, selectCustomizer, src, srcIdentifier, w, warnings)
   UntemplateScala(untemplateName, warnings.to(Vector), w.toString)
 
