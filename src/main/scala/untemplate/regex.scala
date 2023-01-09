@@ -23,6 +23,6 @@ private val UnescapeEmbeddedExpressionRegex = """\\(\<\(.+?\)\>)""".r
 private val UnescapeRegexes =
   UnescapeHeaderDelimeterRegex :: UnescapeTextStartDelimeterRegex :: UnescapeTextEndDelimeterRegex :: UnescapeEmbeddedExpressionRegex :: Nil
 
-private val PackageExtractRegex = """^\s*package\s+(\S+)\s*$""".r
+private val PackageExtractFromLineRegex = """^\s*package\s+(\S+)[\;\s]*(?://.*)?$""".r
 
-
+private val UntemplateIdentifierExtractFromLineRegex = """^\s*val\s+Untemplate_(\w+)\s+\=untemplate\.Untemplate\[.+$""".r

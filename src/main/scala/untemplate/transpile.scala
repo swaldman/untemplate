@@ -284,7 +284,7 @@ private def partitionHeaderBlock( text : String ) : PartitionedHeaderBlock =
     if packageLines.nonEmpty then
       val packageComponents =
         packageLines.map {
-          case PackageExtractRegex(pkgPath) => pkgPath
+          case PackageExtractFromLineRegex(pkgPath) => pkgPath
           case line                         => throw new ParseException(s"Bad package declaration in header: '${line}''")
         }
       Some( joinPackageIdentifierPaths(packageComponents) )
@@ -366,6 +366,8 @@ private def transpileToWriter (
 
   val textBlocks = td3.nonheaderBlocks.collect { case b : ParseBlock.Text => b }
 
+  // fragile, at-most-one single line, package declaration relied upon for indexing
+  // see UntemplateScala.fromScalaText
   mbPackagePath.foreach { dotpath =>
     w.writeln(s"package ${dotpath}")
     w.writeln()
@@ -391,23 +393,12 @@ private def transpileToWriter (
   val blockPrinterTups =
     (for (i <- 0 until textBlocks.length) yield (s"block${i}", textBlocks(i).functionIdentifier, rawTextToBlockPrinter( textBlocks(i).rawTextBlock ))).toVector
 
-//  w.indentln(0)(s"private object ${helperName}:")
-//  blockPrinterTups.foreach { tup =>
-//    w.indentln(1)(s"private val ${tup(0)} = ${tup(2)}" )
-//  }
-//  w.writeln()
-//  val allBPsStr =  blockPrinterTups.map(tup => tup(0)).mkString(", ")
-//  w.indentln( indentLevel = 1 )(s"val BlockPrinters = Vector( $allBPsStr )")
-//  w.writeln()
-//  blockPrinterTups.foreach { tup =>
-//    tup(1).foreach( fname => w.indentln(1)(s"val ${fname} = ${tup(0)}") )
-//  }
-//  w.indentln(0)(s"end ${helperName}")
-//  w.writeln()
   val argList = s"(${inputName} : ${inputType}${inputDefaultArgClause})"
-  val functionObjectName = s"Untemplate_${untemplateName}"
   val fullReturnType = s"untemplate.Result[${perhapsCustomizedOutputMetadataType}]"
   val embeddableDefaultArg = mbDefaultArg.fold(s"(None : Option[${inputType}])")(defaultArg => s"""Some(${defaultArg})""")
+
+  // fragile, next two lines relied upon for indexing, see UntemplateScala.fromScalaText(...)
+  val functionObjectName = s"Untemplate_${untemplateName}"
   w.indentln(0)(s"val ${functionObjectName} = new untemplate.Untemplate[${inputType},${perhapsCustomizedOutputMetadataType}]:")
   w.indentln(1)(s"""val UntemplateFunction                    : untemplate.Untemplate[${inputType},${perhapsCustomizedOutputMetadataType}] = this""")
   w.indentln(1)(s"""val UntemplateName                        : String = "${untemplateName}"""")
