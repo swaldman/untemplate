@@ -80,5 +80,14 @@ object Untemplate:
       Runtime.default.unsafe.run(transpileRecursive(source, dest, selectCustomizer, flatten)).getOrThrowFiberFailure()
     }
 
-abstract class Untemplate[-A, +B] extends Function1[A,Result[B]]
+abstract class Untemplate[-A, +B] extends Function1[A,Result[B]]:
+  def UntemplateFunction                    : untemplate.Untemplate[A,B]
+  def UntemplateName                        : String
+  def UntemplateInputName                   : String
+  def UntemplateInputTypeDeclared           : String
+  def UntemplateInputTypeCanonical          : Option[String]
+  def UntemplateInputDefaultArgument        : Option[_ >: A]
+  def UntemplateOutputMetadataTypeDeclared  : String
+  def UntemplateOutputMetadataTypeCanonical : Option[String]
+
 

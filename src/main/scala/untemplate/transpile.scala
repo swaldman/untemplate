@@ -407,14 +407,16 @@ private def transpileToWriter (
   val argList = s"(${inputName} : ${inputType}${inputDefaultArgClause})"
   val functionObjectName = s"Untemplate_${untemplateName}"
   val fullReturnType = s"untemplate.Result[${perhapsCustomizedOutputMetadataType}]"
-  val embeddableDefaultArg = mbDefaultArg.fold("(None : Option[String])")(defaultArg => s"""Some("${defaultArg}")""")
+  val embeddableDefaultArg = mbDefaultArg.fold(s"(None : Option[${inputType}])")(defaultArg => s"""Some(${defaultArg})""")
   w.indentln(0)(s"val ${functionObjectName} = new untemplate.Untemplate[${inputType},${perhapsCustomizedOutputMetadataType}]:")
-  w.indentln(1)( """val UntemplateFunction             = this""")
-  w.indentln(1)(s"""val UntemplateName                 = "${untemplateName}"""")
-  w.indentln(1)(s"""val UntemplateInputName            = "${inputName}"""")
-  w.indentln(1)(s"""val UntemplateInputType            = "${inputType}"""")
-  w.indentln(1)(s"""val UntemplateInputDefaultArgument = ${embeddableDefaultArg}""")
-  w.indentln(1)(s"""val UntemplateOutputMetadataType   = "${perhapsCustomizedOutputMetadataType}"""")
+  w.indentln(1)(s"""val UntemplateFunction                    : untemplate.Untemplate[${inputType},${perhapsCustomizedOutputMetadataType}] = this""")
+  w.indentln(1)(s"""val UntemplateName                        : String = "${untemplateName}"""")
+  w.indentln(1)(s"""val UntemplateInputName                   : String = "${inputName}"""")
+  w.indentln(1)(s"""val UntemplateInputTypeDeclared           : String = "${inputType}"""")
+  w.indentln(1)(s"""val UntemplateInputTypeCanonical          : Option[String] = untemplate.Macro.nonEmptyStringOption( untemplate.Macro.recursiveCanonicalName[${inputType}] )""")
+  w.indentln(1)(s"""val UntemplateInputDefaultArgument        : Option[${inputType}] = ${embeddableDefaultArg}""")
+  w.indentln(1)(s"""val UntemplateOutputMetadataTypeDeclared  : String = "${perhapsCustomizedOutputMetadataType}"""")
+  w.indentln(1)(s"""val UntemplateOutputMetadataTypeCanonical : Option[String] = untemplate.Macro.nonEmptyStringOption( untemplate.Macro.recursiveCanonicalName[${perhapsCustomizedOutputMetadataType}] )""")
   w.writeln()
   w.indentln(1)(s"def apply${argList} : ${fullReturnType} =")
   w.indentln(2)(untemplateBody(td3, inputName, inputType, perhapsCustomizedOutputMetadataType, defaultMetadataValue, defaultOutputTransformer, blockPrinterTups, mbPartitionedHeaderBlock))

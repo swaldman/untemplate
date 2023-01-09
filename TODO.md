@@ -27,8 +27,9 @@
    * Maybe extra imports by the same discriminator?
    * CustomizerKey?
    * Update docs about uselessness of Metainformation...
- * "Feature creep" docs: OutputTransformer, long delimeters
+ * "Feature creep" docs: Customizers, OutputTransformer, long delimeters
  * Template indexing
- * Static site generator generator
+ * Documentation: Static site generator generator
+ * Documentation: Mill quickstart
 
 
