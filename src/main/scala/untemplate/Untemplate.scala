@@ -38,6 +38,7 @@ object Untemplate:
         for
           untemplateSource <- pkgSource.untemplateSource(untemplateSourceName)
           untemplateScala = DefaultTranspiler(pkgSource.locationPackage, defaultFunctionIdentifier, selectCustomizer, untemplateSource, Some(untemplateSourceName))
+          _ <- ZIO.mergeAll( untemplateScala.warnings.map( warning => ZIO.logWarning( s"${untemplateSourceName}: ${warning.toString}" ) ) )(())((_: Unit, _: Unit) => ())
           _ <- ZIO.attemptBlocking(Files.writeString(outFullPath, untemplateScala.text, scala.io.Codec.UTF8.charSet))
         yield ()
 

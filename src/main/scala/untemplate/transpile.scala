@@ -302,7 +302,7 @@ private def transpileToWriter (
   srcIdentifier         : Option[String],
   w                     : Writer,
   warnings              : mutable.Buffer[UntemplateWarning]
-) : Identifier =
+) : (Option[String], Identifier) =
   val td1 = untabAndCountSpaces( src )
   val td2 = basicParse( td1 )
   val td3 = collectBlocks( td2 )
@@ -425,7 +425,7 @@ private def transpileToWriter (
   w.indentln(0)(s"end ${functionObjectName}")
   w.writeln()
   w.indentln(0)(s"def ${untemplateName}${argList} : ${fullReturnType} = ${functionObjectName}( ${inputName} )")
-  untemplateName
+  ( mbPackagePath, untemplateName )
 
 private def untemplateBody(
   td3 : TranspileData3,
@@ -502,6 +502,6 @@ private def defaultTranspile(
 ) : UntemplateScala =
   val w = new StringWriter(K16) // XXX: hardcoded initial buffer length, should we examine src?
   val warnings = mutable.Buffer.empty[UntemplateWarning]
-  val untemplateName = transpileToWriter(locationPackage, defaultUntemplateName, selectCustomizer, src, srcIdentifier, w, warnings)
-  UntemplateScala(untemplateName, warnings.to(Vector), w.toString)
+  val (mbPkgPath, untemplateName) = transpileToWriter(locationPackage, defaultUntemplateName, selectCustomizer, src, srcIdentifier, w, warnings)
+  UntemplateScala(mbPkgPath.getOrElse(""), untemplateName, warnings.to(Vector), w.toString)
 

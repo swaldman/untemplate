@@ -16,7 +16,7 @@ opaque type UntemplateWarning = String
 
 def toUntemplateWarning( s : String ) : UntemplateWarning = s
 
-case class UntemplateScala( identifier : Identifier, warning : Vector[UntemplateWarning], text : String )
+case class UntemplateScala( pkg : String, identifier : Identifier, warnings : Vector[UntemplateWarning], text : String )
 
 type Transpiler           = Function5[LocationPackage, Identifier, Customizer.Selector, UntemplateSource, Option[String], UntemplateScala]
 type BlockPrinter         = Function0[String]
