@@ -411,6 +411,7 @@ private def transpileToWriter (
   w.indentln(0)(s"val ${functionObjectName} = new untemplate.Untemplate[${inputType},${perhapsCustomizedOutputMetadataType}]:")
   w.indentln(1)(s"""val UntemplateFunction                    : untemplate.Untemplate[${inputType},${perhapsCustomizedOutputMetadataType}] = this""")
   w.indentln(1)(s"""val UntemplateName                        : String = "${untemplateName}"""")
+  w.indentln(1)(s"""val UntemplatePackage                     : String = "${mbPackagePath.getOrElse("")}"""")
   w.indentln(1)(s"""val UntemplateInputName                   : String = "${inputName}"""")
   w.indentln(1)(s"""val UntemplateInputTypeDeclared           : String = "${inputType}"""")
   w.indentln(1)(s"""val UntemplateInputTypeCanonical          : Option[String] = untemplate.Macro.nonEmptyStringOption( untemplate.Macro.recursiveCanonicalName[${inputType}] )""")

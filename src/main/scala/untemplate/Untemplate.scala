@@ -83,6 +83,7 @@ object Untemplate:
 abstract class Untemplate[-A, +B] extends Function1[A,Result[B]]:
   def UntemplateFunction                    : untemplate.Untemplate[A,B]
   def UntemplateName                        : String
+  def UntemplatePackage                     : String
   def UntemplateInputName                   : String
   def UntemplateInputTypeDeclared           : String
   def UntemplateInputTypeCanonical          : Option[String]
