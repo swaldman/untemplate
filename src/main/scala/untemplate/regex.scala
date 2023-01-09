@@ -1,16 +1,17 @@
 package untemplate
 
+private val WhitespaceOrCommentRegexString = """\s*(?:\#.*)?"""
 private val UnanchoredHeaderDelimeterRegexString = """\((.*?)\)\[(.*)\]\~+?\((.*?)\)\>"""
 private val UnanchoredHeaderDelimeterRegex = UnanchoredHeaderDelimeterRegexString.r
-private val AnchoredHeaderDelimeterRegex = ("""^"""+ UnanchoredHeaderDelimeterRegexString + """\s*$""").r
+private val AnchoredHeaderDelimeterRegex = ("""^"""+ UnanchoredHeaderDelimeterRegexString + WhitespaceOrCommentRegexString + """$""").r
 
 private val UnanchoredTextStartDelimeterRegexString = """\((.*?)\)[\-\>]*?\>"""
 private val UnanchoredTextStartDelimeterRegex = UnanchoredTextStartDelimeterRegexString.r
-private val AnchoredTextStartDelimiterRegex = ("""^""" + UnanchoredTextStartDelimeterRegexString + """\s*$""").r
+private val AnchoredTextStartDelimiterRegex = ("""^""" + UnanchoredTextStartDelimeterRegexString + WhitespaceOrCommentRegexString + """$""").r
 
 private val UnanchoredTextEndDelimeterRegexString = """\<[\<\-]*?\(\)"""
 private val UnanchoredTextEndDelimeterRegex = UnanchoredTextEndDelimeterRegexString.r
-private val AnchoredTextEndDelimeterRegex = ("""^""" + UnanchoredTextEndDelimeterRegexString + """\s*$""").r
+private val AnchoredTextEndDelimeterRegex = ("""^""" + UnanchoredTextEndDelimeterRegexString + WhitespaceOrCommentRegexString + """$""").r
 
 private val EmbeddedExpressionRegex = """(?<!\\)\<\((.+?)\)\>""".r
 

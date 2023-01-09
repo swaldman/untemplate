@@ -24,5 +24,8 @@
  * Template indexing
  * Documentation: Static site generator generator
  * Documentation: Mill quickstart
+ * Package in metadata
+ * Header note in metadata
+ * Handle warnings in `UntemplateSource`
 
 
