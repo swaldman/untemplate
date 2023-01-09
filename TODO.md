@@ -20,14 +20,7 @@
   The `[Nothing]` part just means there cannot be metadata attached to this result.
   <--------------------------------------------------------------------------------()
   ```
- * Allow for a user-definable function that accepts e.g. identifier name, 
-   and metadata type, perhaps information about package (only if default?)
-   and chooses a default `OutputTransformer` on that basis (rather than always
-   defaulting to identity).
-   * Maybe extra imports by the same discriminator?
-   * CustomizerKey?
-   * Update docs about uselessness of Metainformation...
- * "Feature creep" docs: Customizers, OutputTransformer, long delimeters
+ * Documentation: "Feature creep" docs: Customizers, OutputTransformer, long delimeters
  * Template indexing
  * Documentation: Static site generator generator
  * Documentation: Mill quickstart
