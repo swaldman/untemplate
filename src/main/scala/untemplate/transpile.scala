@@ -397,6 +397,7 @@ private def transpileToWriter (
   val fullReturnType = s"untemplate.Result[${perhapsCustomizedOutputMetadataType}]"
   val embeddableDefaultArg = mbDefaultArg.fold(s"(None : Option[${inputType}])")(defaultArg => s"""Some(${defaultArg})""")
 
+  // fragile, indexes depend on this naming convention for the function object
   // fragile, next two lines relied upon for indexing, see UntemplateScala.fromScalaText(...)
   val functionObjectName = s"Untemplate_${untemplateName}"
   w.indentln(0)(s"val ${functionObjectName} = new untemplate.Untemplate[${inputType},${perhapsCustomizedOutputMetadataType}]:")

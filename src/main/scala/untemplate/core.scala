@@ -33,7 +33,9 @@ object UntemplateScala:
       case Some(id) => UntemplateScala( pkg, id, Vector.empty, text )
       case None     => throw new ParseException(s"Could not extract untemplate identifier from text.")
 
-case class UntemplateScala( pkg : String, identifier : Identifier, warnings : Vector[UntemplateWarning], text : String )
+case class UntemplateScala( pkg : String, identifier : Identifier, warnings : Vector[UntemplateWarning], text : String ):
+  def fullyQualifiedFunctionName =
+    if pkg.nonEmpty then pkg + "." + identifier.toString else identifier.toString
 
 type Transpiler           = Function5[LocationPackage, Identifier, Customizer.Selector, UntemplateSource, Option[String], UntemplateScala]
 type BlockPrinter         = Function0[String]
