@@ -10,6 +10,7 @@ object Customizer:
                        inferredFunctionName : String,
                        resolvedFunctionName : String,
                        outputMetadataType   : String,
+                       headerNote           : String,
                        sourceIdentifier     : Option[String])
 
   final case class InputTypeDefaultArg(inputType : String, mbDefaultArg : Option[String])

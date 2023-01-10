@@ -10,8 +10,8 @@ object SingleSource:
 
   private def fromFile( locationPackage : LocationPackage, filePath : Path, codec : Codec ) : Task[SingleSource] =
     ZIO.attemptBlocking {
-      val untemplateSourceMetadata = ZIO.attemptBlocking(UntemplateSourceMetadata(Some(Files.getLastModifiedTime(filePath).toMillis)))
-      val untemplateSource = ZIO.attemptBlocking(asUntemplateSource(Files.readAllLines(filePath, codec.charSet).asScala.to(Vector)))
+      val untemplateSourceMetadata = ZIO.attemptBlocking(UntemplateSource.Metadata(Some(Files.getLastModifiedTime(filePath).toMillis)))
+      val untemplateSource = ZIO.attemptBlocking(UntemplateSource(filePath.toString, Files.readAllLines(filePath, codec.charSet).asScala.to(Vector)))
       SingleSource(locationPackage, filePath.getFileName.toString, untemplateSourceMetadata, untemplateSource)
     }
 
@@ -25,6 +25,6 @@ object SingleSource:
 case class SingleSource (
   locationPackage          : LocationPackage,
   untemplateSourceName     : String,
-  untemplateSourceMetadata : Task[UntemplateSourceMetadata],
+  untemplateSourceMetadata : Task[UntemplateSource.Metadata],
   untemplateSource         : Task[UntemplateSource]
 )

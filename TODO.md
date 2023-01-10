@@ -3,7 +3,7 @@
 * Lint pass
     - mixed tab/space prefixes
     - unescaped block delimiters not first character
-    - first-character block delimeters with non-spaces on rest-of-line
+    - first-character block delimeters with non-comment, non-spaces on rest-of-line
 * Document/test long delimeters + comments, e.g.
   ```
   (chillOnReturnType)>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -21,7 +21,6 @@
   <--------------------------------------------------------------------------------()
   ```
  * Documentation: "Feature creep" docs: Customizers, OutputTransformer, long delimeters
- * Template indexing
  * Documentation: Static site generator generator
  * Documentation: Mill quickstart
  * User-specifiable header note in metadata

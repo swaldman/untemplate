@@ -149,7 +149,7 @@ object Untemplate:
 
   def unsafeTranspileRecursive(source : Path, dest : Path, selectCustomizer : Customizer.Selector, fullyQualifiedIndexName : Option[String], flatten : Boolean) : Unit =
     Unsafe.unsafe { implicit unsafe =>
-      Runtime.default.unsafe.run(transpileRecursive(source, dest, selectCustomizer, fullyQualifiedIndexName, flatten)).getOrThrowFiberFailure()
+      Runtime.default.unsafe.run(transpileRecursive(source, dest, selectCustomizer, fullyQualifiedIndexName, flatten)).getOrThrow()
     }
 
 abstract class Untemplate[-A, +B] extends Function1[A,Result[B]]:
@@ -162,5 +162,8 @@ abstract class Untemplate[-A, +B] extends Function1[A,Result[B]]:
   def UntemplateInputDefaultArgument        : Option[_ >: A]
   def UntemplateOutputMetadataTypeDeclared  : String
   def UntemplateOutputMetadataTypeCanonical : Option[String]
+  def UntemplateHeaderNote                  : String
+
+  override def toString() : String = s"untemplate.Untemplate[${UntemplateInputTypeDeclared},${UntemplateOutputMetadataTypeDeclared}]"
 
 

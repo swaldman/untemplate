@@ -21,10 +21,10 @@ private val K16  =  16 * 1024
 
 
 private final case class TranspileData1(source : UntemplateSource, spaceNormalized : Vector[String], indentLevels : Vector[Int])
-private final case class TranspileData2(last : TranspileData1, hasHeader : Boolean, mbInputName : Option[String], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideUntemplateName : Option[String], textBlockInfos : Vector[TextBlockInfo])
+private final case class TranspileData2(last : TranspileData1, hasHeader : Boolean, mbInputName : Option[String], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideUntemplateName : Option[String], mbHeaderNote : Option[String], textBlockInfos : Vector[TextBlockInfo])
 private final case class TranspileData3(last : TranspileData2, headerInfo : Option[HeaderInfo], nonheaderBlocks : Vector[ParseBlock])
 
-private case class HeaderInfo(mbInputName : Option[Identifier], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideUntemplateName : Option[Identifier], headerBlock : ParseBlock.Code)
+private case class HeaderInfo(mbInputName : Option[Identifier], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideUntemplateName : Option[Identifier], mbHeaderNote : Option[String], headerBlock : ParseBlock.Code)
 private final case class TextBlockInfo(functionName : Option[String], startDelimeter : Option[Int], stopDelimeter : Option[Int])
 
 private object ParseBlock:
@@ -58,7 +58,7 @@ private def untabAndCountSpaces( gs : UntemplateSource )(using ui : UnitIndent) 
 private object LineDelimeter:
   // object Header:
   //   def apply(str: String) : Header = if str == null || str.isEmpty then Header(None) else Header(Some(str))
-  case class Header(mbInputName : Option[String], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideUntemplateName : Option[String]) extends LineDelimeter
+  case class Header(mbInputName : Option[String], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideUntemplateName : Option[String], mbHeaderNote : Option[String]) extends LineDelimeter
   object Start:
     def apply(str : String) : Start = if str == null || str.isEmpty then Start(None) else Start(Some(str))
   case class Start(functionName : Option[String]) extends LineDelimeter
@@ -80,6 +80,7 @@ private def carveAroundDelimeterChar(maybeNullOrBlank : String, delimeter : Char
         case i => (Some(maybeNullOrBlank.substring(0, i)), Some(maybeNullOrBlank.substring(i + 1)))
   if trim then Tuple2(nonEmptyStringOption(raw(0).map(_.trim)),nonEmptyStringOption(raw(1).map(_.trim))) else raw
 
+private def isBlank( s : String ) = s == null || s.trim.isEmpty
 
 private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
   var headerTuple : Option[Tuple2[Int,LineDelimeter.Header]] = None
@@ -88,19 +89,24 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
   for( i <- 0 until td1.indentLevels.length) // indentLevels.length is also the line length
     if td1.indentLevels(i) == 0 then
       td1.source.lines(i) match {
-        case AnchoredHeaderDelimeterRegex(inputNameType, outputMetadataType, untemplateNameDotFunctionName) =>
+        case AnchoredHeaderDelimeterRegex(inputNameType, outputMetadataType, untemplateNameDotFunctionName, headerNote) =>
           // println("SAW HEADER DELIMETER")
           val (overrideUntemplateName, functionName) = carveAroundDelimeterChar(untemplateNameDotFunctionName, '.', trim = true)
           val (inputName, inputTypeWithMbDefaultArg) = carveAroundDelimeterChar(inputNameType, ':', trim = true)
           val (inputType, inputDefaultArg)           = carveAroundDelimeterChar(inputTypeWithMbDefaultArg.getOrElse(""), '=', trim = true)
+          val mbHeaderNote = if (isBlank(headerNote)) None else Some(headerNote.trim)
           if headerTuple == None then
-            headerTuple = Some(Tuple2(i, LineDelimeter.Header(nonEmptyStringOption(inputName), nonEmptyStringOption(inputType), nonEmptyStringOption(inputDefaultArg), nonEmptyStringOption(outputMetadataType), overrideUntemplateName)))
+            headerTuple = Some(Tuple2(i, LineDelimeter.Header(nonEmptyStringOption(inputName), nonEmptyStringOption(inputType), nonEmptyStringOption(inputDefaultArg), nonEmptyStringOption(outputMetadataType), overrideUntemplateName, mbHeaderNote)))
             parseTuples += Tuple2(i, LineDelimeter.Start(functionName))
           else
-            throw new ParseException(s"Duplicate header delimeter at line ${i}")
-        case AnchoredTextStartDelimiterRegex(functionName) =>
+            throw new ParseException(s"${td1.source.provenance}: Duplicate header delimeter at line ${i}")
+        case AnchoredTextStartDelimiterRegex(functionName, extra) =>
+          if (!isBlank(extra))
+            throw new ParseException(s"${td1.source.provenance}: Text start delimeter line must be blank after delimeter, contains '${extra}'")
           parseTuples += Tuple2(i, LineDelimeter.Start(nonEmptyStringOption(functionName)))
-        case AnchoredTextEndDelimeterRegex() =>
+        case AnchoredTextEndDelimeterRegex(extra) =>
+          if (!isBlank(extra))
+            throw new ParseException(s"${td1.source.provenance}: Text end delimeter line must be blank after delimeter, contains '${extra}'")
           parseTuples += Tuple2(i, LineDelimeter.End)
         case _ => /* No match, move on */
       }
@@ -109,7 +115,7 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
   headerTuple.foreach { case (line, ldh) =>
     if line != parseTuples.keys.head then
       throw new ParseException(
-        s"The first start tuple is at (zero-indexed) line ${parseTuples.keys.head}, but header boundary is at ${line}, should be identical." +
+        s"${td1.source.provenance}: The first start tuple is at (zero-indexed) line ${parseTuples.keys.head}, but header boundary is at ${line}, should be identical." +
         "Perhaps there is a start delimeter above the header delimeter. That would be bad!"
       )
   }
@@ -125,23 +131,23 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
         case (a : LineDelimeter.Start, b : LineDelimeter.End.type)         => /* Good */
         case (a : LineDelimeter.End.type, b : LineDelimeter.Start)         => /* Good */
         case (a : LineDelimeter.Start, b : LineDelimeter.Start)            =>
-          throw new ParseException(s"Line ${i+1}: Text region start requested within already started text region. Please escape untemplate delimeters in text.")
+          throw new ParseException(s"${td1.source.provenance}: Line ${i+1}: Text region start requested within already started text region. Please escape untemplate delimeters in text.")
         case (a : LineDelimeter.End.type, b : LineDelimeter.End.type)       =>
-          throw new ParseException(s"Line ${i+1}: Text region end requested within Scala code region.")
+          throw new ParseException(s"${td1.source.provenance}: Line ${i+1}: Text region end requested within Scala code region.")
         case (_ : LineDelimeter.Header, _) | (_, _ : LineDelimeter.Header) =>
-          throw new AssertionError(s"Line ${i+1}: There should be no LineDelimeter.Header in parseTuples!")
+          throw new AssertionError(s"${td1.source.provenance}: Line ${i+1}: There should be no LineDelimeter.Header in parseTuples!")
       }
     lastSeen = delim
   }
 
   // okay... apparently we have alternating sections. Let's build our output
-  val (mbInputName : Option[String], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideUntemplateName : Option[String]) =
+  val (mbInputName : Option[String], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideUntemplateName : Option[String], mbHeaderNote : Option[String]) =
     headerTuple match
       case Some(tup) =>
         val ldHeader = tup(1)
-        (ldHeader.mbInputName, ldHeader.mbInputType, ldHeader.mbInputDefaultArg, ldHeader.mbOutputMetadataType, ldHeader.mbOverrideUntemplateName)
+        (ldHeader.mbInputName, ldHeader.mbInputType, ldHeader.mbInputDefaultArg, ldHeader.mbOutputMetadataType, ldHeader.mbOverrideUntemplateName, ldHeader.mbHeaderNote)
       case None =>
-        (None, None, None, None, None)
+        (None, None, None, None, None, None)
 
   if parseTuples.nonEmpty then
     val textBlockInfos = Vector.newBuilder[TextBlockInfo]
@@ -169,9 +175,9 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
         else None
       textBlockInfos.addOne(TextBlockInfo(functionName,Some(start),end))
     }
-    TranspileData2( td1, headerTuple.nonEmpty, mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateName, textBlockInfos.result() )
+    TranspileData2( td1, headerTuple.nonEmpty, mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateName, mbHeaderNote, textBlockInfos.result() )
   else
-    TranspileData2( td1, false, None, None, None, None, None, Vector.empty )
+    TranspileData2( td1, false, None, None, None, None, None, None, Vector.empty )
 
 private def parseBlockTextFromInfo( unmodifiedLines : Vector[String], info : TextBlockInfo ) =
   val text = (info.startDelimeter, info.stopDelimeter) match
@@ -183,12 +189,13 @@ private def parseBlockTextFromInfo( unmodifiedLines : Vector[String], info : Tex
   ParseBlock.Text(functionName, text)
 
 private def collectBlocksNonEmpty( td2 : TranspileData2 ) : TranspileData3 =
-  val mbInputNameIdentifier                 = td2.mbInputName.map( toIdentifier )
-  val mbInputType                           = td2.mbInputType
-  val mbInputDefaultArg                     = td2.mbInputDefaultArg
-  val mbOutputMetadataType                  = td2.mbOutputMetadataType
+  val mbInputNameIdentifier                  = td2.mbInputName.map( toIdentifier )
+  val mbInputType                            = td2.mbInputType
+  val mbInputDefaultArg                      = td2.mbInputDefaultArg
+  val mbOutputMetadataType                   = td2.mbOutputMetadataType
   val mbOverrideUntemplateNameIdentifier     = td2.mbOverrideUntemplateName.map( toIdentifier )
-  var headerBlock : Option[ParseBlock.Code] = None
+  val mbHeaderNote                           = td2.mbHeaderNote
+  var headerBlock : Option[ParseBlock.Code]  = None
 
   // for text, we take from unmodified UntemplateSource.
   // in other words, don't mess with tabs and spaces
@@ -227,7 +234,7 @@ private def collectBlocksNonEmpty( td2 : TranspileData2 ) : TranspileData3 =
 
   val nonheaderBlocks = blocksBuilder.result()
   val mbHeaderInfo =
-    headerBlock.map(hblock => HeaderInfo(mbInputNameIdentifier, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateNameIdentifier, hblock))
+    headerBlock.map(hblock => HeaderInfo(mbInputNameIdentifier, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateNameIdentifier, mbHeaderNote, hblock))
 
   TranspileData3( td2, mbHeaderInfo : Option[HeaderInfo], nonheaderBlocks )
 
@@ -274,7 +281,7 @@ private def rawTextToBlockPrinter( text : String )(using ui : UnitIndent) : Stri
 
 private final case class PartitionedHeaderBlock(packageOverride : Option[String], importsText : String, otherHeaderText : String, otherLastIndent : Int)
 
-private def partitionHeaderBlock( text : String ) : PartitionedHeaderBlock =
+private def partitionHeaderBlock( td1 : TranspileData1, text : String ) : PartitionedHeaderBlock =
   // println( s">>> headerBlockToPartition: ${text}" )
   val linesTuple = text.linesIterator.to(List).partition( _.trim.startsWith("import ") )
   val importsText = linesTuple(0).map( _.trim ).mkString("",LineSep,LineSep)
@@ -285,7 +292,7 @@ private def partitionHeaderBlock( text : String ) : PartitionedHeaderBlock =
       val packageComponents =
         packageLines.map {
           case PackageExtractFromLineRegex(pkgPath) => pkgPath
-          case line                         => throw new ParseException(s"Bad package declaration in header: '${line}''")
+          case line                         => throw new ParseException(s"${td1.source.provenance}: Bad package declaration in header: '${line}''")
         }
       Some( joinPackageIdentifierPaths(packageComponents) )
     else
@@ -310,10 +317,10 @@ private def transpileToWriter (
   // println(td3)
   // println(s"headerInfo[${untemplateName}] >>> " + td3.headerInfo)
 
-  val (mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateName, mbPartitionedHeaderBlock) =
+  val (mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateName, mbHeaderNote, mbPartitionedHeaderBlock) =
     td3.headerInfo match
-      case Some( HeaderInfo( mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateName, headerBlock ) ) => (mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateName, Some(partitionHeaderBlock(headerBlock.text)))
-      case None                                                                                                                           => (None, None, None, None, None, None)
+      case Some( HeaderInfo( mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateName, mbHeaderNote, headerBlock ) ) => (mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateName, mbHeaderNote, Some(partitionHeaderBlock(td1, headerBlock.text)))
+      case None                                                                                                                                         => (None, None, None, None, None, None, None)
 
   val mbFromLocationPackage = if locationPackage.nonDefault then Some(locationPackage.dotty) else None
   val mbExplicitPackage = mbPartitionedHeaderBlock.flatMap(_.packageOverride)
@@ -328,6 +335,7 @@ private def transpileToWriter (
     inferredFunctionName = defaultUntemplateName.toString,
     resolvedFunctionName = resolvedUntemplateName.toString,
     outputMetadataType   = tentativeOutputMetadataType,
+    headerNote           = mbHeaderNote.getOrElse(""),
     sourceIdentifier     = srcIdentifier
   )
   val customizer = selectCustomizer( customizerKey )
@@ -410,6 +418,7 @@ private def transpileToWriter (
   w.indentln(1)(s"""val UntemplateInputDefaultArgument        : Option[${inputType}] = ${embeddableDefaultArg}""")
   w.indentln(1)(s"""val UntemplateOutputMetadataTypeDeclared  : String = "${perhapsCustomizedOutputMetadataType}"""")
   w.indentln(1)(s"""val UntemplateOutputMetadataTypeCanonical : Option[String] = untemplate.Macro.nonEmptyStringOption( untemplate.Macro.recursiveCanonicalName[${perhapsCustomizedOutputMetadataType}] )""")
+  w.indentln(1)(s"""val UntemplateHeaderNote                  : String = "${mbHeaderNote.getOrElse("")}"""")
   w.writeln()
   w.indentln(1)(s"def apply${argList} : ${fullReturnType} =")
   w.indentln(2)(untemplateBody(td3, inputName, inputType, perhapsCustomizedOutputMetadataType, defaultMetadataValue, defaultOutputTransformer, blockPrinterTups, mbPartitionedHeaderBlock))

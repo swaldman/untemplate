@@ -19,10 +19,14 @@ object PackageSource:
       val untemplatePaths = allFilePaths.filter(path => Files.isRegularFile(path) && path.toString.endsWith(DotSuffix))
       val untemplateSourceNameVec = untemplatePaths.map(_.getFileName.toString)
       val untemplateSourceNamesToPaths = Map(untemplateSourceNameVec.zip(untemplatePaths): _*)
-      val untemplateSourceMetadata: String => Task[UntemplateSourceMetadata] =
-        untemplateSourceName => ZIO.attemptBlocking(UntemplateSourceMetadata(Some(Files.getLastModifiedTime(untemplateSourceNamesToPaths(untemplateSourceName)).toMillis)))
+      val untemplateSourceMetadata: String => Task[UntemplateSource.Metadata] =
+        untemplateSourceName => ZIO.attemptBlocking(UntemplateSource.Metadata(Some(Files.getLastModifiedTime(untemplateSourceNamesToPaths(untemplateSourceName)).toMillis)))
       val untemplateSource: String => Task[UntemplateSource] =
-        untemplateSourceName => ZIO.attemptBlocking(asUntemplateSource(Files.readAllLines(untemplateSourceNamesToPaths(untemplateSourceName), codec.charSet).asScala.to(Vector)))
+        untemplateSourceName => ZIO.attemptBlocking {
+          val sourcePath = untemplateSourceNamesToPaths(untemplateSourceName)
+          val lines = Files.readAllLines(sourcePath, codec.charSet).asScala.to(Vector)
+          UntemplateSource( sourcePath.toString, lines )
+        }
       PackageSource(locationPackage, untemplateSourceNameVec, untemplateSourceMetadata, untemplateSource)
     }
 
@@ -44,6 +48,6 @@ object PackageSource:
 case class PackageSource (
   locationPackage          : LocationPackage,
   untemplateSourceNames    : Vector[String],
-  untemplateSourceMetadata : String => Task[UntemplateSourceMetadata],
+  untemplateSourceMetadata : String => Task[UntemplateSource.Metadata],
   untemplateSource         : String => Task[UntemplateSource]
 )
