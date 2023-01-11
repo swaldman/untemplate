@@ -22,10 +22,10 @@ type OutputTransformer[A] = Function1[Result[A],Result[A]]
 val DefaultTranspiler : Transpiler = defaultTranspile
 
 // these are just examples
-// val HeaderDelimeter    = "()[]~()>"
+// val HeaderDelimiter    = "()[]~()>"
 
-// val TextStartDelimeter = "()>"
-// val TextEndDelimeter   = "<()"
+// val TextStartDelimiter = "()>"
+// val TextEndDelimiter   = "<()"
 
 // val EmbeddedExpressionDelimiter = "<()>"
 

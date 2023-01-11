@@ -26,7 +26,7 @@ private final case class TranspileData2(last : TranspileData1, hasHeader : Boole
 private final case class TranspileData3(last : TranspileData2, headerInfo : Option[HeaderInfo], nonheaderBlocks : Vector[ParseBlock])
 
 private case class HeaderInfo(mbInputName : Option[Identifier], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideUntemplateName : Option[Identifier], mbHeaderNote : Option[String], headerBlock : ParseBlock.Code)
-private final case class TextBlockInfo(functionName : Option[String], startDelimeter : Option[Int], stopDelimeter : Option[Int])
+private final case class TextBlockInfo(functionName : Option[String], startDelimiter : Option[Int], stopDelimiter : Option[Int])
 
 private object ParseBlock:
   final case class Text( functionIdentifier : Option[Identifier], rawTextBlock : String) extends ParseBlock
@@ -45,24 +45,24 @@ private def prefixTabSpaceToSpaces(spacesPerTab : Int, line : String) : String =
   spacified + rest
 
 // linenum should be user-interpretable, ie one indexed
-private def checkDelimeter(linenum : Int, delimType : String, delimUnanchoredRegex : Regex, delimFullLineRegex : Regex, line : String) : Option[String] =
+private def checkDelimiter(linenum : Int, delimType : String, delimUnanchoredRegex : Regex, delimFullLineRegex : Regex, line : String) : Option[String] =
   delimUnanchoredRegex.findFirstMatchIn(line) match
-    case Some( m ) => // okay, we have a delimeter
+    case Some( m ) => // okay, we have a delimiter
       if delimFullLineRegex.matches(line) then
-        None // okay, a normal good delimeter
+        None // okay, a normal good delimiter
       else
         if m.start(0) == 0 then // uh oh, this is in delimiter position but not a valid delimiter line, an error
           throw new ParseException(s"Line ${linenum}: Invalid ${delimType} delimiter line, bad stuff to the right of delimiter.")
         else
           // no linenum in String because we prepend it later.
-          Some(s"Unescaped ${delimType} delimiter not at beginning-of-line (col: ${m.start(0) + 1}) will not be recognized as a delimeter! ['${m.group(0)}']")
-    case None => // No delimeter to worry about
+          Some(s"Unescaped ${delimType} delimiter not at beginning-of-line (col: ${m.start(0) + 1}) will not be recognized as a delimiter! ['${m.group(0)}']")
+    case None => // No delimiter to worry about
       None
 
 // linenum should be user-interpretable, ie one indexed
-private def checkTextStartDelimeter(linenum : Int, line : String) = checkDelimeter(linenum, "text-start", UnanchoredTextStartDelimeterRegex, AnchoredTextStartDelimiterRegex, line)
-private def checkTextEndDelimeter(linenum : Int, line : String) = checkDelimeter(linenum, "text-end", UnanchoredTextEndDelimeterRegex, AnchoredTextEndDelimeterRegex, line)
-private def checkHeaderDelimeter(linenum : Int, line : String) = checkDelimeter(linenum, "header", UnanchoredHeaderDelimeterRegex, AnchoredHeaderDelimeterRegex, line)
+private def checkTextStartDelimiter(linenum : Int, line : String) = checkDelimiter(linenum, "text-start", UnanchoredTextStartDelimiterRegex, AnchoredTextStartDelimiterRegex, line)
+private def checkTextEndDelimiter(linenum : Int, line : String) = checkDelimiter(linenum, "text-end", UnanchoredTextEndDelimiterRegex, AnchoredTextEndDelimiterRegex, line)
+private def checkHeaderDelimiter(linenum : Int, line : String) = checkDelimiter(linenum, "header", UnanchoredHeaderDelimiterRegex, AnchoredHeaderDelimiterRegex, line)
 
 // linenum should be user-interpretable, ie one indexed
 private def earlyValidate( linenum : Int, line : String ) : List[UntemplateWarning] =
@@ -77,9 +77,9 @@ private def earlyValidate( linenum : Int, line : String ) : List[UntemplateWarni
   if (initialWhitespace.distinct.length > 1)
     addWarning("Mixes tabs and spaces in initial whitespace, asking for trouble.")
 
-  mbAddWarning( checkTextStartDelimeter(linenum, line) )
-  mbAddWarning( checkTextEndDelimeter(linenum, line) )
-  mbAddWarning( checkHeaderDelimeter(linenum, line) )
+  mbAddWarning( checkTextStartDelimiter(linenum, line) )
+  mbAddWarning( checkTextEndDelimiter(linenum, line) )
+  mbAddWarning( checkHeaderDelimiter(linenum, line) )
 
   out
 
@@ -97,22 +97,22 @@ private def untabCountSpacesValidate( gs : UntemplateSource )(using ui : UnitInd
     indents(i) = indent
   TranspileData1(gs, newLines.toVector, indents.toVector, earlyWarnings.reverse)
 
-private object LineDelimeter:
+private object LineDelimiter:
   // object Header:
   //   def apply(str: String) : Header = if str == null || str.isEmpty then Header(None) else Header(Some(str))
-  case class Header(mbInputName : Option[String], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideUntemplateName : Option[String], mbHeaderNote : Option[String]) extends LineDelimeter
+  case class Header(mbInputName : Option[String], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideUntemplateName : Option[String], mbHeaderNote : Option[String]) extends LineDelimiter
   object Start:
     def apply(str : String) : Start = if str == null || str.isEmpty then Start(None) else Start(Some(str))
-  case class Start(functionName : Option[String]) extends LineDelimeter
-  case object End extends LineDelimeter
-private sealed trait LineDelimeter
+  case class Start(functionName : Option[String]) extends LineDelimiter
+  case object End extends LineDelimiter
+private sealed trait LineDelimiter
 
-private def carveAroundDelimeterChar(maybeNullOrBlank : String, delimeter : Char, trim : Boolean) : Tuple2[Option[String],Option[String]] =
+private def carveAroundDelimiterChar(maybeNullOrBlank : String, delimiter : Char, trim : Boolean) : Tuple2[Option[String],Option[String]] =
   val raw =
     if maybeNullOrBlank == null || maybeNullOrBlank.isEmpty then
       (None, None)
     else
-      val dotIndex = maybeNullOrBlank.indexOf(delimeter)
+      val dotIndex = maybeNullOrBlank.indexOf(delimiter)
       val len = maybeNullOrBlank.length
       val Last = len - 1
       dotIndex match
@@ -125,31 +125,31 @@ private def carveAroundDelimeterChar(maybeNullOrBlank : String, delimeter : Char
 private def isBlank( s : String ) = s == null || s.trim.isEmpty
 
 private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
-  var headerTuple : Option[Tuple2[Int,LineDelimeter.Header]] = None
-  val parseTuples : mutable.SortedMap[Int,LineDelimeter] = mutable.SortedMap.empty // empty only of there are no delimeters at all
+  var headerTuple : Option[Tuple2[Int,LineDelimiter.Header]] = None
+  val parseTuples : mutable.SortedMap[Int,LineDelimiter] = mutable.SortedMap.empty // empty only of there are no delimiters at all
 
   for( i <- 0 until td1.indentLevels.length) // indentLevels.length is also the line length
     if td1.indentLevels(i) == 0 then
       td1.source.lines(i) match {
-        case AnchoredHeaderDelimeterRegex(inputNameType, outputMetadataType, untemplateNameDotFunctionName, headerNote) =>
+        case AnchoredHeaderDelimiterRegex(inputNameType, outputMetadataType, untemplateNameDotFunctionName, headerNote) =>
           // println("SAW HEADER DELIMETER")
-          val (overrideUntemplateName, functionName) = carveAroundDelimeterChar(untemplateNameDotFunctionName, '.', trim = true)
-          val (inputName, inputTypeWithMbDefaultArg) = carveAroundDelimeterChar(inputNameType, ':', trim = true)
-          val (inputType, inputDefaultArg)           = carveAroundDelimeterChar(inputTypeWithMbDefaultArg.getOrElse(""), '=', trim = true)
+          val (overrideUntemplateName, functionName) = carveAroundDelimiterChar(untemplateNameDotFunctionName, '.', trim = true)
+          val (inputName, inputTypeWithMbDefaultArg) = carveAroundDelimiterChar(inputNameType, ':', trim = true)
+          val (inputType, inputDefaultArg)           = carveAroundDelimiterChar(inputTypeWithMbDefaultArg.getOrElse(""), '=', trim = true)
           val mbHeaderNote = if (isBlank(headerNote)) None else Some(headerNote.trim)
           if headerTuple == None then
-            headerTuple = Some(Tuple2(i, LineDelimeter.Header(nonEmptyStringOption(inputName), nonEmptyStringOption(inputType), nonEmptyStringOption(inputDefaultArg), nonEmptyStringOption(outputMetadataType), overrideUntemplateName, mbHeaderNote)))
-            parseTuples += Tuple2(i, LineDelimeter.Start(functionName))
+            headerTuple = Some(Tuple2(i, LineDelimiter.Header(nonEmptyStringOption(inputName), nonEmptyStringOption(inputType), nonEmptyStringOption(inputDefaultArg), nonEmptyStringOption(outputMetadataType), overrideUntemplateName, mbHeaderNote)))
+            parseTuples += Tuple2(i, LineDelimiter.Start(functionName))
           else
-            throw new ParseException(s"${td1.source.provenance}: Duplicate header delimeter at line ${i}")
+            throw new ParseException(s"${td1.source.provenance}: Duplicate header delimiter at line ${i}")
         case AnchoredTextStartDelimiterRegex(functionName, extra) =>
           if (!isBlank(extra))
-            throw new ParseException(s"${td1.source.provenance}: Text start delimeter line must be blank after delimeter, contains '${extra}'")
-          parseTuples += Tuple2(i, LineDelimeter.Start(nonEmptyStringOption(functionName)))
-        case AnchoredTextEndDelimeterRegex(extra) =>
+            throw new ParseException(s"${td1.source.provenance}: Text start delimiter line must be blank after delimiter, contains '${extra}'")
+          parseTuples += Tuple2(i, LineDelimiter.Start(nonEmptyStringOption(functionName)))
+        case AnchoredTextEndDelimiterRegex(extra) =>
           if (!isBlank(extra))
-            throw new ParseException(s"${td1.source.provenance}: Text end delimeter line must be blank after delimeter, contains '${extra}'")
-          parseTuples += Tuple2(i, LineDelimeter.End)
+            throw new ParseException(s"${td1.source.provenance}: Text end delimiter line must be blank after delimiter, contains '${extra}'")
+          parseTuples += Tuple2(i, LineDelimiter.End)
         case _ => /* No match, move on */
       }
 
@@ -158,26 +158,26 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
     if line != parseTuples.keys.head then
       throw new ParseException(
         s"${td1.source.provenance}: The first start tuple is at (zero-indexed) line ${parseTuples.keys.head}, but header boundary is at ${line}, should be identical." +
-        "Perhaps there is a start delimeter above the header delimeter. That would be bad!"
+        "Perhaps there is a start delimiter above the header delimiter. That would be bad!"
       )
   }
 
   // check correct alternation of types
-  var lastSeen : LineDelimeter = null; // so sue me... purely an internal implementation detail
+  var lastSeen : LineDelimiter = null; // so sue me... purely an internal implementation detail
   parseTuples.foreach { case (i, delim) =>
     // println( s"Line: ${i+1}     delim: ${delim}" )
     if lastSeen == null then
       lastSeen = delim
     else
       (lastSeen, delim) match {
-        case (a : LineDelimeter.Start, b : LineDelimeter.End.type)         => /* Good */
-        case (a : LineDelimeter.End.type, b : LineDelimeter.Start)         => /* Good */
-        case (a : LineDelimeter.Start, b : LineDelimeter.Start)            =>
-          throw new ParseException(s"${td1.source.provenance}: Line ${i+1}: Text region start requested within already started text region. Please escape untemplate delimeters in text.")
-        case (a : LineDelimeter.End.type, b : LineDelimeter.End.type)       =>
+        case (a : LineDelimiter.Start, b : LineDelimiter.End.type)         => /* Good */
+        case (a : LineDelimiter.End.type, b : LineDelimiter.Start)         => /* Good */
+        case (a : LineDelimiter.Start, b : LineDelimiter.Start)            =>
+          throw new ParseException(s"${td1.source.provenance}: Line ${i+1}: Text region start requested within already started text region. Please escape untemplate delimiters in text.")
+        case (a : LineDelimiter.End.type, b : LineDelimiter.End.type)       =>
           throw new ParseException(s"${td1.source.provenance}: Line ${i+1}: Text region end requested within Scala code region.")
-        case (_ : LineDelimeter.Header, _) | (_, _ : LineDelimeter.Header) =>
-          throw new AssertionError(s"${td1.source.provenance}: Line ${i+1}: There should be no LineDelimeter.Header in parseTuples!")
+        case (_ : LineDelimiter.Header, _) | (_, _ : LineDelimiter.Header) =>
+          throw new AssertionError(s"${td1.source.provenance}: Line ${i+1}: There should be no LineDelimiter.Header in parseTuples!")
       }
     lastSeen = delim
   }
@@ -197,8 +197,8 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
     val headTuple = parseTuples.head
     val (groupTuples, prependHead) =
       headTuple match {
-        case (_, _ : LineDelimeter.Start)    => Tuple2(parseTuples, false)
-        case (_, _ : LineDelimeter.End.type) => Tuple2(parseTuples.tail, true)
+        case (_, _ : LineDelimiter.Start)    => Tuple2(parseTuples, false)
+        case (_, _ : LineDelimiter.End.type) => Tuple2(parseTuples.tail, true)
         case (_, _) =>
           throw new AssertionError("There should be no LineDelimter.Header values in parseTuples.")
       }
@@ -208,9 +208,9 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
       val l = minimap.toList
       val (start, functionName) =
         l.head match {
-          case (s, LineDelimeter.Start(fname)) => (s, fname)
+          case (s, LineDelimiter.Start(fname)) => (s, fname)
           case (a,b) =>
-            throw new AssertionError(s"Expected tuple of (Int,LineDelimeter.Start), found (${a},${b})")
+            throw new AssertionError(s"Expected tuple of (Int,LineDelimiter.Start), found (${a},${b})")
         }
       val end =
         if (l.tail.nonEmpty) Some(l.tail.head(0))
@@ -222,7 +222,7 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
     TranspileData2( td1, false, None, None, None, None, None, None, Vector.empty )
 
 private def parseBlockTextFromInfo( unmodifiedLines : Vector[String], info : TextBlockInfo ) =
-  val text = (info.startDelimeter, info.stopDelimeter) match
+  val text = (info.startDelimiter, info.stopDelimiter) match
     case (Some(before), Some(until)) => unmodifiedLines.slice(before + 1, until).mkString(LineSep)
     case (None,         Some(until)) => unmodifiedLines.slice(0, until).mkString(LineSep)
     case (Some(before), None       ) => unmodifiedLines.slice(before + 1, unmodifiedLines.size).mkString(LineSep)
@@ -258,7 +258,7 @@ private def collectBlocksNonEmpty( td2 : TranspileData2 ) : TranspileData3 =
 
   infos.foreach { info =>
     val mbPriorCodeBlock =
-      (lastInfo.flatMap(_.stopDelimeter), info.startDelimeter) match
+      (lastInfo.flatMap(_.stopDelimiter), info.startDelimiter) match
         case (Some(before), Some(until)) => Some(ParseBlock.Code(normalizedLines.slice(before+1,until).mkString("",LineSep,LineSep), if until == 0 then 0 else indents(until-1)))
         case (None,         Some(until)) => Some(ParseBlock.Code(normalizedLines.slice(0, until).mkString("",LineSep,LineSep), 0))
         case (Some(before), None       ) => throw new AssertionError(s"Interior text blocks should have start delimteres! [prior: ${lastInfo}, current: ${info}]")
@@ -269,7 +269,7 @@ private def collectBlocksNonEmpty( td2 : TranspileData2 ) : TranspileData3 =
     lastInfo = Some(info)
   }
   val mbLastCodeBlock =
-    lastInfo.flatMap( _.stopDelimeter ).map { before =>
+    lastInfo.flatMap( _.stopDelimiter ).map { before =>
       ParseBlock.Code(normalizedLines.slice(before+1,normalizedLines.length).mkString("",LineSep,LineSep), indents.last )
     }
   mbLastCodeBlock.foreach(blocksBuilder.addOne)
