@@ -22,5 +22,6 @@
   ```
  * Documentation: "Feature creep" docs: Customizers, OutputTransformer, long delimeters
  * Documentation: Static site generator generator
- * Documentation: Mill quickstart
+ * Documentation: Mill Quickstart
+ * Documentation: Cheatsheet
  * Testing 
