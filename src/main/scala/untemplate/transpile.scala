@@ -47,14 +47,15 @@ private def prefixTabSpaceToSpaces(spacesPerTab : Int, line : String) : String =
 // linenum should be user-interpretable, ie one indexed
 private def checkDelimeter(linenum : Int, delimType : String, delimUnanchoredRegex : Regex, delimFullLineRegex : Regex, line : String) : Option[String] =
   delimUnanchoredRegex.findFirstMatchIn(line) match
-    case Some( m ) => // okay, we have a delimeter regex
+    case Some( m ) => // okay, we have a delimeter
       if delimFullLineRegex.matches(line) then
-        None // okay, a good delimeter
+        None // okay, a normal good delimeter
       else
         if m.start(0) == 0 then // uh oh, this is in delimiter position but not a valid delimiter line, an error
           throw new ParseException(s"Line ${linenum}: Invalid ${delimType} delimiter line, bad stuff to the right of delimiter.")
         else
-          Some(s"Unescaped ${delimType} delimiter not at beginning-of-line is not recognized as a delimeter! ['${m.group(0)}']") // no linenum in String because we prepend it later.
+          // no linenum in String because we prepend it later.
+          Some(s"Unescaped ${delimType} delimiter not at beginning-of-line (col: ${m.start(0) + 1}) will not be recognized as a delimeter! ['${m.group(0)}']")
     case None => // No delimeter to worry about
       None
 
