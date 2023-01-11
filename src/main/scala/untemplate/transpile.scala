@@ -2,6 +2,7 @@ package untemplate
 
 import java.io.{Writer,StringWriter}
 import scala.collection.*
+import scala.util.matching.Regex
 import com.mchange.sc.v2.literal.StringLiteral.formatAsciiScalaStringLiteral
 
 import com.mchange.codegenutil.*
@@ -20,7 +21,7 @@ private val K128 = 128 * 1024
 private val K16  =  16 * 1024
 
 
-private final case class TranspileData1(source : UntemplateSource, spaceNormalized : Vector[String], indentLevels : Vector[Int])
+private final case class TranspileData1(source : UntemplateSource, spaceNormalized : Vector[String], indentLevels : Vector[Int], earlyWarnings : List[UntemplateWarning])
 private final case class TranspileData2(last : TranspileData1, hasHeader : Boolean, mbInputName : Option[String], mbInputType : Option[String], mbInputDefaultArg : Option[String], mbOutputMetadataType : Option[String], mbOverrideUntemplateName : Option[String], mbHeaderNote : Option[String], textBlockInfos : Vector[TextBlockInfo])
 private final case class TranspileData3(last : TranspileData2, headerInfo : Option[HeaderInfo], nonheaderBlocks : Vector[ParseBlock])
 
@@ -43,17 +44,57 @@ private def prefixTabSpaceToSpaces(spacesPerTab : Int, line : String) : String =
   val spacified = tabs.getBytes(scala.io.Codec.UTF8.charSet).map(replace).mkString
   spacified + rest
 
-private def untabAndCountSpaces( gs : UntemplateSource )(using ui : UnitIndent) : TranspileData1 =
+// linenum should be user-interpretable, ie one indexed
+private def checkDelimeter(linenum : Int, delimType : String, delimUnanchoredRegex : Regex, delimFullLineRegex : Regex, line : String) : Option[String] =
+  delimUnanchoredRegex.findFirstMatchIn(line) match
+    case Some( m ) => // okay, we have a delimeter regex
+      if delimFullLineRegex.matches(line) then
+        None // okay, a good delimeter
+      else
+        if m.start(0) == 0 then // uh oh, this is in delimiter position but not a valid delimiter line, an error
+          throw new ParseException(s"Line ${linenum}: Invalid ${delimType} delimiter line, bad stuff to the right of delimiter.")
+        else
+          Some(s"Unescaped ${delimType} delimiter not at beginning-of-line is not recognized as a delimeter! ['${m.group(0)}']") // no linenum in String because we prepend it later.
+    case None => // No delimeter to worry about
+      None
+
+// linenum should be user-interpretable, ie one indexed
+private def checkTextStartDelimeter(linenum : Int, line : String) = checkDelimeter(linenum, "text-start", UnanchoredTextStartDelimeterRegex, AnchoredTextStartDelimiterRegex, line)
+private def checkTextEndDelimeter(linenum : Int, line : String) = checkDelimeter(linenum, "text-end", UnanchoredTextEndDelimeterRegex, AnchoredTextEndDelimeterRegex, line)
+private def checkHeaderDelimeter(linenum : Int, line : String) = checkDelimeter(linenum, "header", UnanchoredHeaderDelimeterRegex, AnchoredHeaderDelimeterRegex, line)
+
+// linenum should be user-interpretable, ie one indexed
+private def earlyValidate( linenum : Int, line : String ) : List[UntemplateWarning] =
+  var out = List.empty[UntemplateWarning]
+
+  def addWarning( s : String ) =
+    out = toUntemplateWarning(s"Line ${linenum}: s") :: out
+
+  def mbAddWarning( mbs : Option[String]) = mbs.foreach( addWarning )
+
+  val initialWhitespace = line.takeWhile( c => c == ' ' || c == '\t')
+  if (initialWhitespace.distinct.length > 1)
+    addWarning("Mixes tabs and spaces in initial whitespace, asking for trouble.")
+
+  mbAddWarning( checkTextStartDelimeter(linenum, line) )
+  mbAddWarning( checkTextEndDelimeter(linenum, line) )
+  mbAddWarning( checkHeaderDelimeter(linenum, line) )
+
+  out
+
+private def untabCountSpacesValidate( gs : UntemplateSource )(using ui : UnitIndent) : TranspileData1 =
   val indents = Array.ofDim[Int](gs.lines.length)
   val oldLines = gs.lines
   val newLines = mutable.Buffer.empty[String]
+  var earlyWarnings = List.empty[UntemplateWarning]
   for( i <- 0 until gs.lines.length )
     val oldLine = oldLines(i)
+    earlyWarnings = earlyValidate(i+1, oldLine) ::: earlyWarnings
     val untabbed = prefixTabSpaceToSpaces(ui.toInt, oldLine)
     val indent = untabbed.takeWhile(_ == ' ').length
     newLines.append(untabbed)
     indents(i) = indent
-  TranspileData1(gs, newLines.toVector, indents.toVector)
+  TranspileData1(gs, newLines.toVector, indents.toVector, earlyWarnings.reverse)
 
 private object LineDelimeter:
   // object Header:
@@ -316,12 +357,11 @@ private def transpileToWriter (
   w                     : Writer,
   warnings              : mutable.Buffer[UntemplateWarning]
 ) : (Option[String], Identifier) =
-  val td1 = untabAndCountSpaces( src )
+  val td1 = untabCountSpacesValidate( src )
   val td2 = basicParse( td1 )
   val td3 = collectBlocks( td2 )
 
-  // println(td3)
-  // println(s"headerInfo[${untemplateName}] >>> " + td3.headerInfo)
+  warnings ++= td1.earlyWarnings
 
   val (mbInputName, mbInputType, mbInputDefaultArg, mbOutputMetadataType, mbOverrideUntemplateName, mbHeaderNote, mbPartitionedHeaderBlock) =
     td3.headerInfo match

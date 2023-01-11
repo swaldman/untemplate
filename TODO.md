@@ -1,9 +1,5 @@
 # TODO
 
-* Lint pass
-    - mixed tab/space prefixes
-    - unescaped block delimiters not first character
-    - first-character block delimeters with non-comment, non-spaces on rest-of-line
 * Document/test long delimeters + comments, e.g.
   ```
   (chillOnReturnType)>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
