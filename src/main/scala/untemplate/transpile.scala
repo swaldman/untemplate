@@ -68,7 +68,7 @@ private def earlyValidate( linenum : Int, line : String ) : List[UntemplateWarni
   var out = List.empty[UntemplateWarning]
 
   def addWarning( s : String ) =
-    out = toUntemplateWarning(s"Line ${linenum}: s") :: out
+    out = toUntemplateWarning(s"Line ${linenum}: ${s}") :: out
 
   def mbAddWarning( mbs : Option[String]) = mbs.foreach( addWarning )
 
