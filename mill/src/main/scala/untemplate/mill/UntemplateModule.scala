@@ -12,7 +12,7 @@ import untemplate._
 trait UntemplateModule extends ScalaModule {
 
   def untemplateSource : Source = T.source {
-    millSourcePath / "src" / "untemplate"
+    millSourcePath / "untemplate"
   }
 
   def untemplateFlatten = T {
