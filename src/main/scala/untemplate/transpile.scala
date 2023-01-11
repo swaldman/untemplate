@@ -60,9 +60,9 @@ private def checkDelimiter(linenum : Int, delimType : String, delimUnanchoredReg
       None
 
 // linenum should be user-interpretable, ie one indexed
-private def checkTextStartDelimiter(linenum : Int, line : String) = checkDelimiter(linenum, "text-start", UnanchoredTextStartDelimiterRegex, AnchoredTextStartDelimiterRegex, line)
-private def checkTextEndDelimiter(linenum : Int, line : String) = checkDelimiter(linenum, "text-end", UnanchoredTextEndDelimiterRegex, AnchoredTextEndDelimiterRegex, line)
-private def checkHeaderDelimiter(linenum : Int, line : String) = checkDelimiter(linenum, "header", UnanchoredHeaderDelimiterRegex, AnchoredHeaderDelimiterRegex, line)
+private def checkTextStartDelimiter(linenum : Int, line : String) = checkDelimiter(linenum, "text-start", WarningUnanchoredTextStartDelimiterRegex, AnchoredTextStartDelimiterRegex, line)
+private def checkTextEndDelimiter(linenum : Int, line : String) = checkDelimiter(linenum, "text-end", WarningUnanchoredTextEndDelimiterRegex, AnchoredTextEndDelimiterRegex, line)
+private def checkHeaderDelimiter(linenum : Int, line : String) = checkDelimiter(linenum, "header", WarningUnanchoredHeaderDelimiterRegex, AnchoredHeaderDelimiterRegex, line)
 
 // linenum should be user-interpretable, ie one indexed
 private def earlyValidate( linenum : Int, line : String ) : List[UntemplateWarning] =
