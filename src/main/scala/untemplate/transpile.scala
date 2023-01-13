@@ -352,6 +352,7 @@ private def partitionHeaderBlock( td1 : TranspileData1, text : String )(using ui
         throw new ParseException(s"${srcId}: Constructor lines in the header must each begin with the same number of '>' characters.")
       else
         val margins = constructorLinesUntrimmed.map( _.takeWhile(c => c ==' ' || c =='\t') )
+        val isBlanks = constructorLinesUntrimmed.map( _.trim.isEmpty )
         val marginChars = margins.mkString.distinct
         if marginChars.size > 1 then
           throw new ParseException(s"${srcId}: In constructor text in header, whitespace margins after '>' must not mix spaces and tabs, does.")
@@ -362,8 +363,13 @@ private def partitionHeaderBlock( td1 : TranspileData1, text : String )(using ui
               margins.map( tabs => tabspaces * tabs.length )
             else
               margins
-          val minMargin = normalizedMargins.map( _.length).reduceLeft( math.min )
-          val trimmedMargins = normalizedMargins.map( _.substring(minMargin) )
+          //val minMargin = normalizedMargins.map( _.length).reduceLeft( math.min )
+
+          // grr... we don't want blank-after-'>' lines to mess with our margins
+          val normalizedMarginsIsBlanks = normalizedMargins.zip( isBlanks )
+          val minRealMargin =
+            normalizedMarginsIsBlanks.foldLeft(Int.MaxValue){ case (accum, (nm, ib)) => if ib then accum else math.min(accum, nm.length) }
+          val trimmedMargins = normalizedMarginsIsBlanks.map{ case (nm, ib) => if ib then "" else nm.substring(minRealMargin) }
           val constructorTextLines = trimmedMargins.zip( constructorLinesUntrimmed.map( _.trim ) ).map(tup => tup(0) + tup(1))
           constructorTextLines.mkString("",LineSep,LineSep)
     else
@@ -509,9 +515,14 @@ private def transpileToWriter (
       case Some(phb) =>
         defaultUntemplateAttributesDeclaration + phb.constructorText // already LineSep terminated
       case None =>
-        defaultUntemplateAttributesDeclaration + LineSep
+        defaultUntemplateAttributesDeclaration  // already LineSep terminated
+
+  // println(">>>>>> increasing indent of:")
+  // print( extraConstructorText )
+  // println("<<<<<<")
 
   w.write(increaseIndentLevels(1)(extraConstructorText)) // already LineSep terminated
+  w.writeln()
 
   w.indentln(1)(s"def apply${argList} : ${fullReturnType} =")
   w.indentln(2)(untemplateBody(td3, inputName, inputType, perhapsCustomizedOutputMetadataType, defaultMetadataValue, defaultOutputTransformer, blockPrinterTups, mbPartitionedHeaderBlock))
