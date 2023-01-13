@@ -2,6 +2,7 @@ package untemplate
 
 import zio.*
 import java.nio.file.{Files, Path}
+import scala.collection.*
 
 object Untemplate:
 
@@ -163,6 +164,7 @@ abstract class Untemplate[-A, +B] extends Function1[A,Result[B]]:
   def UntemplateOutputMetadataTypeDeclared  : String
   def UntemplateOutputMetadataTypeCanonical : Option[String]
   def UntemplateHeaderNote                  : String
+  def UntemplateAttributes                  : immutable.Map[String,Any]
 
   override def toString() : String = s"untemplate.Untemplate[${UntemplateInputTypeDeclared},${UntemplateOutputMetadataTypeDeclared}]"
 
