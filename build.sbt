@@ -13,8 +13,8 @@ lazy val root = project
     resolvers           += Resolver.mavenLocal,
     libraryDependencies += "dev.zio" %% "zio" % ZIOVersion,
     libraryDependencies += "com.github.scopt" %% "scopt" % "4.1.0",
-    libraryDependencies += "com.mchange" %% "literal" % "0.1.1-SNAPSHOT",
-    libraryDependencies += "com.mchange" %% "codegenutil" % "0.0.1"
+    libraryDependencies += "com.mchange" %% "literal" % "0.1.2",
+    libraryDependencies += "com.mchange" %% "codegenutil" % "0.0.2-SNAPSHOT"
   )
 
 // sadly, as of sbt 1.x we need to stick with Scala 2.12.x
