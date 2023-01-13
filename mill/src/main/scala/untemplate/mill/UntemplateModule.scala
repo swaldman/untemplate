@@ -19,13 +19,13 @@ trait UntemplateModule extends ScalaModule {
     false
   }
 
-  def indexNameFullyQualified : Option[String] = None
+  def untemplateIndexNameFullyQualified : Option[String] = None
 
   def untemplateSelectCustomizer : untemplate.Customizer.Selector =
     untemplate.Customizer.NeverCustomize
 
   def untemplateGenerateScala = T {
-    Untemplate.unsafeTranspileRecursive(untemplateSource().path.toNIO, T.dest.toNIO, untemplateSelectCustomizer, indexNameFullyQualified, untemplateFlatten())
+    Untemplate.unsafeTranspileRecursive(untemplateSource().path.toNIO, T.dest.toNIO, untemplateSelectCustomizer, untemplateIndexNameFullyQualified, untemplateFlatten())
     PathRef(T.dest)
   }
 
