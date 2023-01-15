@@ -4,7 +4,7 @@ ThisBuild / publishTo := {
 }
 
 ThisBuild / organization := "com.mchange"
-ThisBuild / version      := "0.0.1"
+ThisBuild / version      := "0.0.2"
 
 val ZIOVersion = "2.0.5"
 
@@ -12,15 +12,16 @@ lazy val root = project
   .in(file("."))
   .enablePlugins(JavaAppPackaging)
   .settings (
-    name                := "untemplate",
-    scalaVersion        := "3.2.1",
+    name                     := "untemplate",
+    scalaVersion             := "3.2.1",
     // scalacOptions       += "-explain",
-    resolvers           += Resolver.mavenLocal,
-    libraryDependencies += "dev.zio" %% "zio" % ZIOVersion,
-    libraryDependencies += "com.github.scopt" %% "scopt" % "4.1.0",
-    libraryDependencies += "com.mchange" %% "literal" % "0.1.2",
-    libraryDependencies += "com.mchange" %% "codegenutil" % "0.0.2",
-    pomExtra            := pomExtraForProjectName_Apache2( name.value )
+    resolvers                += Resolver.mavenLocal,
+    libraryDependencies      += "dev.zio" %% "zio" % ZIOVersion,
+    libraryDependencies      += "com.github.scopt" %% "scopt" % "4.1.0",
+    libraryDependencies      += "com.mchange" %% "literal" % "0.1.2",
+    libraryDependencies      += "com.mchange" %% "codegenutil" % "0.0.2",
+    Compile/sourceGenerators += generateBuildInfoSourceGeneratorTask,
+    pomExtra                 := pomExtraForProjectName_Apache2( name.value )
   )
 
 // sadly, as of sbt 1.x we need to stick with Scala 2.12.x
@@ -76,5 +77,41 @@ def pomExtraForProjectName_Apache2( projectName : String ) = {
           </developer>
       </developers>
 }
+
+val BuildInfoPackageDir = Vector( "untemplate", "build" )
+
+val generateBuildInfoSourceGeneratorTask = Def.task{
+  import java.io._
+  import java.nio.file.Files
+
+  import scala.io.Codec
+
+  import java.time._
+  import java.time.format._
+
+  val srcManaged       = (Compile/sourceManaged).value
+  val UntemplateVersion = version.value
+
+  val now = Instant.now
+  val ts = DateTimeFormatter.RFC_1123_DATE_TIME.withZone( ZoneId.systemDefault() ).format(now)
+
+  val sep = File.separator
+  val outDir = new File( srcManaged, BuildInfoPackageDir.mkString( sep ) )
+  val outFile = new File( outDir, "generated.scala" )
+  val contents = {
+    s"""|package ${BuildInfoPackageDir.mkString(".")}
+        |
+        |// has to be backward compatible to Scala 2.13 for mill
+        |object BuildInfo {
+        |  val UntemplateVersion = "${UntemplateVersion}"
+        |  val BuildTimestamp    = "${ts}"
+        |}
+        |""".stripMargin
+  }
+  outDir.mkdirs()
+  Files.write( outFile.toPath, contents.getBytes( Codec.UTF8.charSet ) )
+  outFile :: Nil
+}
+
 
 

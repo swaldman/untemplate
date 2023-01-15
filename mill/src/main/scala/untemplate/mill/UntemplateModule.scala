@@ -33,7 +33,7 @@ trait UntemplateModule extends ScalaModule {
     super.generatedSources() ++ scalaUnder( untemplateGenerateScala().path ).map(PathRef(_))
   }
 
-  override def ivyDeps = T{ super.ivyDeps() ++ Agg(ivy"com.mchange::untemplate:0.0.1-SNAPSHOT") }
+  override def ivyDeps = T{ super.ivyDeps() ++ Agg(ivy"com.mchange::untemplate:${untemplate.build.BuildInfo.UntemplateVersion}") }
 
   // inspired by https://github.com/vic/mill-scalaxb/blob/master/scalaxb/src/ScalaxbModule.scala
   private def scalaUnder( path : os.Path ) : Seq[os.Path] =
