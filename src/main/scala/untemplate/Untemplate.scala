@@ -166,7 +166,8 @@ abstract class Untemplate[-A, +B] extends Function1[A,Result[B]]:
   def UntemplateOutputMetadataTypeCanonical : Option[String]
   def UntemplateHeaderNote                  : String
   def UntemplateAttributes                  : immutable.Map[String,Any]
+  def UntemplateFullyQualifiedName          : String = s"${UntemplatePackage}.${UntemplateName}"
 
-  override def toString() : String = s"untemplate.Untemplate[${UntemplateInputTypeDeclared},${UntemplateOutputMetadataTypeDeclared}]"
+  override def toString() : String = s"untemplate.Untemplate[${UntemplateInputTypeDeclared},${UntemplateOutputMetadataTypeDeclared}]@${UntemplateFullyQualifiedName}"
 
 
