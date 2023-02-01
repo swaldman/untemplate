@@ -1,5 +1,6 @@
 # TODO
 
+ * Support a `local import` syntax in headers?
  * InputTransformers
    * `whatever.untemplate.xxx` calls `xxx(input: String): String` at start of transpilation
    * parallelize transpilations. should be trivial via ZIO-lib functions.
