@@ -36,4 +36,4 @@ private val UnescapeRegexes =
 
 private val PackageExtractFromLineRegex = """^\s*package\s+(\S+)[\;\s]*(?://.*)?$""".r
 
-private val UntemplateIdentifierExtractFromLineRegex = """^\s*val\s+Untemplate_(\w+)\s+\=untemplate\.Untemplate\[.+$""".r
+private val UntemplateIdentifierExtractFromLineRegex = """^\s*val\s+Untemplate_(\w+)\s*\=\s*new\s+untemplate\.Untemplate\[.+$""".r
