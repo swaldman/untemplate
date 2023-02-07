@@ -24,7 +24,7 @@ trait UntemplateModule extends ScalaModule {
   def untemplateSelectCustomizer : untemplate.Customizer.Selector =
     untemplate.Customizer.NeverCustomize
 
-  def untemplateGenerateScala = T {
+  def untemplateGenerateScala = T.persistent {
     Untemplate.unsafeTranspileRecursive(untemplateSource().path.toNIO, T.dest.toNIO, untemplateSelectCustomizer, untemplateIndexNameFullyQualified, untemplateFlatten())
     PathRef(T.dest)
   }
