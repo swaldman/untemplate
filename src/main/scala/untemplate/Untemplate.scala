@@ -154,6 +154,8 @@ object Untemplate:
       Runtime.default.unsafe.run(transpileRecursive(source, dest, selectCustomizer, fullyQualifiedIndexName, flatten)).getOrThrow()
     }
 
+  type AnyUntemplate = Untemplate[Nothing,Any]
+
 abstract class Untemplate[-A, +B] extends Function1[A,Result[B]]:
   def UntemplateFunction                    : untemplate.Untemplate[A,B]
   def UntemplateName                        : String
@@ -167,6 +169,8 @@ abstract class Untemplate[-A, +B] extends Function1[A,Result[B]]:
   def UntemplateHeaderNote                  : String
   def UntemplateAttributes                  : immutable.Map[String,Any]
   def UntemplateFullyQualifiedName          : String = s"${UntemplatePackage}.${UntemplateName}"
+
+  lazy val UntemplateAttributesLowerCased : LowerCased.Map = LowerCased.attributesFrom(this)
 
   override def toString() : String = s"untemplate.Untemplate[${UntemplateInputTypeDeclared},${UntemplateOutputMetadataTypeDeclared}]@${UntemplateFullyQualifiedName}"
 
