@@ -1,5 +1,6 @@
 # TODO
 
+ * Global index by unique suffix!
  * Support a `local import` syntax in headers?
  * InputTransformers
    * `whatever.untemplate.xxx` calls `xxx(input: String): String` at start of transpilation
