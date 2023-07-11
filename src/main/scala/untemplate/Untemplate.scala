@@ -62,7 +62,7 @@ object Untemplate:
   private def logCantFill( oopsie : Throwable ) : ZIO[Any,Throwable,Unit] =
     ZIO.logWarningCause("Could not read fully qualified function name from nonregenerated file during indexing.", Cause.fail(oopsie))
 
-  private def conditionallyIndex( dest : Path, generationRecords : List[GenerationRecord], fullyQualifiedIndexName : Option[String], flatten : Boolean ) : ZIO[Any,Throwable,Unit] =
+  private def conditionallyIndex( dest : Path, generationRecords : Iterable[GenerationRecord], fullyQualifiedIndexName : Option[String], flatten : Boolean ) : ZIO[Any,Throwable,Unit] =
     fullyQualifiedIndexName match
       case Some( fullyQualifiedName ) =>
         for
@@ -81,8 +81,8 @@ object Untemplate:
     ZIO.attemptBlocking(pkgSources.map(_.locationPackage).foreach(createPackageDir))
 
 
-  private def genScalaSources(dest: Path, pkgSources: Set[PackageSource], selectCustomizer : Customizer.Selector, flatten: Boolean): ZIO[Any, Throwable, List[GenerationRecord]] =
-    def flattenEnsureNoDups(outputFileNames: List[String]): Unit =
+  private def genScalaSources(dest: Path, pkgSources: Set[PackageSource], selectCustomizer : Customizer.Selector, flatten: Boolean): ZIO[Any, Throwable, Iterable[GenerationRecord]] =
+    def flattenEnsureNoDups(outputFileNames: Iterable[String]): Unit =
       if (flatten)
         val dups = outputFileNames.groupBy(identity).collect { case (x, ys) if ys.tail.nonEmpty => x }
         if (dups.nonEmpty)
@@ -127,12 +127,12 @@ object Untemplate:
         ZIO.logDebug(logMessage)
       )
 
-    def generateForPackageSource(pkgSource: PackageSource): ZIO[Any, Throwable, List[GenerationRecord]] =
+    def generateForPackageSource(pkgSource: PackageSource): ZIO[Any, Throwable, Seq[GenerationRecord]] =
       val generations = pkgSource.untemplateSourceNames.map(sourceName => generateForUntemplateInPackage(sourceName, pkgSource))
-      ZIO.mergeAll(generations)(Nil: List[GenerationRecord])((accum, next) => next :: accum)
+      ZIO.collectAllPar(generations)
       // withFileNameList.map(flattenEnsureNoDups) // wrong place for this, must be at PkgSources level!
 
-    val allGenerations = ZIO.mergeAll(pkgSources.map(generateForPackageSource))(Nil : List[GenerationRecord])((accum, next) => (next ::: accum))
+    val allGenerations = ZIO.collectAllPar(pkgSources.map(generateForPackageSource)).map( _.flatten )
     allGenerations.map( genRecList => genRecList.map( _.fileName) ).map(flattenEnsureNoDups)
     allGenerations
 
