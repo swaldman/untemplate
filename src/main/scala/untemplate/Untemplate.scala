@@ -104,7 +104,7 @@ object Untemplate:
         for
           untemplateSource <- pkgSource.untemplateSource(untemplateSourceName)
           untemplateScala = DefaultTranspiler(pkgSource.locationPackage, defaultFunctionIdentifier, selectCustomizer, untemplateSource, Some(untemplateSourceName))
-          _ <- ZIO.mergeAll( untemplateScala.warnings.map( warning => ZIO.logWarning( s"${untemplateSourceName}: ${warning.toString}" ) ) )(())((_: Unit, _: Unit) => ())
+          _ <- ZIO.collectAllDiscard( untemplateScala.warnings.map( warning => ZIO.logWarning( s"${untemplateSourceName}: ${warning.toString}" ) ) )
           _ <- ZIO.attemptBlocking(Files.writeString(outFullPath, untemplateScala.text, scala.io.Codec.UTF8.charSet))
         yield (GenerationRecord(outFullPath,outFileName,Some(untemplateScala.fullyQualifiedFunctionName)))
 
@@ -150,7 +150,7 @@ object Untemplate:
     yield ()
 
   def unsafeTranspileRecursive(source : Path, dest : Path, selectCustomizer : Customizer.Selector, fullyQualifiedIndexName : Option[String], flatten : Boolean) : Unit =
-    Unsafe.unsafe { implicit unsafe =>
+    Unsafe.unsafely {
       Runtime.default.unsafe.run(transpileRecursive(source, dest, selectCustomizer, fullyQualifiedIndexName, flatten)).getOrThrow()
     }
 
