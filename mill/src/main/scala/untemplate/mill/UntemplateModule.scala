@@ -3,7 +3,7 @@ package untemplate.mill
 import mill._
 import mill.define._
 import mill.scalalib._
-import mill.define.Source
+import mill.define.Target
 
 import untemplate._
 
@@ -11,7 +11,7 @@ import untemplate._
 
 trait UntemplateModule extends ScalaModule {
 
-  def untemplateSource : Source = T.source {
+  def untemplateSource : Target[PathRef] = T.source {
     millSourcePath / "untemplate"
   }
 
