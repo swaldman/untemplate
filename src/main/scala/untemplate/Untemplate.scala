@@ -97,7 +97,10 @@ object Untemplate:
       val defaultFunctionIdentifier = untemplateSourceNameToIdentifier(untemplateSourceName)
 
       // Not great, but a name knowable prior to compilation for last-mod check
-      val outFileName = s"${untemplateSourceName}.scala"
+      val outFileName =
+        def dedottify( c : Char ) = if c == '.' then '-' else c
+        val dedottified = untemplateSourceName.map(dedottify)
+        s"${dedottified}.scala"
       val outFullPath = destDirPath.resolve(Path.of(outFileName))
 
       def doGenerateWrite: ZIO[Any, Throwable, GenerationRecord] =
