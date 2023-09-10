@@ -131,8 +131,8 @@ private def basicParse( td1 : TranspileData1 ) : TranspileData2 =
   for( i <- 0 until td1.indentLevels.length) // indentLevels.length is also the line length
     if td1.indentLevels(i) == 0 then
       td1.source.lines(i) match {
-        case AnchoredHeaderDelimiterRegex(inputNameType, outputMetadataType, untemplateNameDotFunctionName, headerNote) =>
-          // println("SAW HEADER DELIMETER")
+        case hd @ AnchoredHeaderDelimiterRegex(inputNameType, outputMetadataType, untemplateNameDotFunctionName, headerNote) =>
+          // println("SAW HEADER DELIMETER: " + hd)
           val (overrideUntemplateName, functionName) = carveAroundDelimiterChar(untemplateNameDotFunctionName, '.', trim = true)
           val (inputName, inputTypeWithMbDefaultArg) = carveAroundDelimiterChar(inputNameType, ':', trim = true)
           val (inputType, inputDefaultArg)           = carveAroundDelimiterChar(inputTypeWithMbDefaultArg.getOrElse(""), '=', trim = true)

@@ -26,11 +26,11 @@ trait UntemplateModule extends ScalaModule {
 
   def untemplateGenerateScala = T.persistent {
     Untemplate.unsafeTranspileRecursive(untemplateSource().path.toNIO, T.dest.toNIO, untemplateSelectCustomizer, untemplateIndexNameFullyQualified, untemplateFlatten())
-    PathRef(T.dest)
+    PathRef(T.dest) +: os.walk(T.dest).map(PathRef(_)) // we rely in generatedSources on T.dest being the head
   }
 
-  override def generatedSources = T {
-    super.generatedSources() ++ scalaUnder( untemplateGenerateScala().path ).map(PathRef(_))
+  override def generatedSources = T { // we rely on untemplateGenerateScala placing the top dir path as head
+    super.generatedSources() ++ scalaUnder( untemplateGenerateScala().head.path ).map(PathRef(_))
   }
 
   override def ivyDeps = T{ super.ivyDeps() ++ Agg(ivy"com.mchange::untemplate:${untemplate.build.BuildInfo.UntemplateVersion}") }
