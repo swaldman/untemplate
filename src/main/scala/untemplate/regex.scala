@@ -2,7 +2,7 @@ package untemplate
 
 private val EndAnchoredDelimiterRegexString = """([^\#]*)(?:\#.*)?$"""
 
-private val UnanchoredHeaderDelimiterRegexString = """\(([^\)]*?)\)\[(.*)\]\~+\((.*?)\)\>"""
+private val UnanchoredHeaderDelimiterRegexString = """\((.*?)\)\[(.*)\]\~+\((.*?)\)\>"""
 private val WarningUnanchoredHeaderDelimiterRegex = ("""(?<!\\)""" + UnanchoredHeaderDelimiterRegexString).r
 private val AnchoredHeaderDelimiterRegex = ("""^"""+ UnanchoredHeaderDelimiterRegexString + EndAnchoredDelimiterRegexString).r
 
