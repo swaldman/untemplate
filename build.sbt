@@ -4,7 +4,7 @@ ThisBuild / publishTo := {
 }
 
 ThisBuild / organization := "com.mchange"
-ThisBuild / version      := "0.1.0"
+ThisBuild / version      := "0.1.1-SNAPSHOT"
 
 val ZIOVersion = "2.0.14"
 
