@@ -1,7 +1,7 @@
 package untemplate
 
 import java.io.{Writer,StringWriter}
-import scala.collection.*
+import scala.collection.{immutable,mutable}
 import scala.util.matching.Regex
 import com.mchange.sc.v2.literal.StringLiteral.formatAsciiScalaStringLiteral
 
@@ -461,6 +461,7 @@ private def transpileToWriter (
     w.writeln()
   }
   w.writeln("import java.io.{Writer,StringWriter}")
+  w.writeln("import scala.collection.{immutable,mutable}")
   w.writeln("import scala.collection.*")
   w.writeln()
   if (customizer.extraImports.nonEmpty)
