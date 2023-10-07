@@ -462,7 +462,6 @@ private def transpileToWriter (
   }
   w.writeln("import java.io.{Writer,StringWriter}")
   w.writeln("import scala.collection.{immutable,mutable}")
-  w.writeln("import scala.collection.*")
   w.writeln()
   if (customizer.extraImports.nonEmpty)
     customizer.extraImports.foreach { line =>

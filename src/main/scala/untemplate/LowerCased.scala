@@ -1,6 +1,6 @@
 package untemplate
 
-import scala.collection.*
+import scala.collection.{immutable,mutable}
 
 object LowerCased:
   type Map = immutable.Map[LowerCased,Any]

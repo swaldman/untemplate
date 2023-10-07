@@ -1,6 +1,6 @@
 package untemplate
 
-import scala.collection.*
+import scala.collection.{immutable,mutable}
 import scala.util.matching.Regex.Match
 import com.mchange.codegenutil
 
