@@ -40,7 +40,7 @@ lazy val plugin = project
     name := "untemplate-sbt-plugin"
   )
 
-val MillVersion = "0.11.2"
+val MillVersion = "0.11.5"
 
 lazy val mill = project
   .in(file("mill"))
