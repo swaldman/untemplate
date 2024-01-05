@@ -149,6 +149,13 @@ object Untemplate:
         val dedottified = untemplateSourceName.map(dedottify)
         s"${dedottified}.scala"
 
+      val ensureNoSideScalaCollision = ZIO.attempt {
+        if pkgSource.sideScalaSourceNames.contains(outFileName) then
+          throw new NonuniqueIdentifier(
+            s"Generated untemplate scala from '${untemplateSourceName}' would overwrite side scala source file '${outFileName}'. Please rename that side scala source file."
+          )
+      }
+
       val outFullPath = destDirPath.resolve(Path.of(outFileName))
 
       def doGenerateWrite: ZIO[Any, Throwable, GenerationRecord] =
@@ -164,6 +171,7 @@ object Untemplate:
 
       val out =
         for
+          _ <- ensureNoSideScalaCollision
           sourceMetadata <- pkgSource.untemplateSourceMetadata(untemplateSourceName)
           mbSourceLastMod = sourceMetadata.mbLastModMetaOption
           mbDestLastMod = if (Files.exists(outFullPath)) Some(Files.getLastModifiedTime(outFullPath).toMillis) else None
