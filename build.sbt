@@ -4,16 +4,16 @@ ThisBuild / publishTo := {
 }
 
 ThisBuild / organization := "com.mchange"
-ThisBuild / version      := "0.1.2"
+ThisBuild / version      := "0.1.3-SNAPSHOT"
 
-val ZIOVersion = "2.0.14"
+val ZIOVersion = "2.1.1"
 
 lazy val root = project
   .in(file("."))
   .enablePlugins(JavaAppPackaging)
   .settings (
     name                     := "untemplate",
-    scalaVersion             := "3.2.2",
+    scalaVersion             := "3.3.3",
     // scalacOptions       += "-explain",
     resolvers                += Resolver.mavenLocal,
     libraryDependencies      += "dev.zio" %% "zio" % ZIOVersion,
@@ -40,7 +40,7 @@ lazy val plugin = project
     name := "untemplate-sbt-plugin"
   )
 
-val MillVersion = "0.11.5"
+val MillVersion = "0.11.7"
 
 lazy val mill = project
   .in(file("mill"))
