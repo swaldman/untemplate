@@ -499,6 +499,7 @@ private def transpileToWriter (
   w.indentln(1)(s"""val UntemplateOutputMetadataTypeDeclared  : String = "${perhapsCustomizedOutputMetadataType}"""")
   w.indentln(1)(s"""val UntemplateOutputMetadataTypeCanonical : Option[String] = untemplate.Macro.nonEmptyStringOption( untemplate.Macro.recursiveCanonicalName[${perhapsCustomizedOutputMetadataType}] )""")
   w.indentln(1)(s"""val UntemplateHeaderNote                  : String = "${mbHeaderNote.getOrElse("")}"""")
+  w.indentln(1)(s"""val UntemplateLastModified                : Option[String] = ${src.metadata.flatMap( _.mbLastModMetaOption ).fold("None")(l => "Some("+l+")")}""")
   w.writeln()
 
   val extraConstructorText =

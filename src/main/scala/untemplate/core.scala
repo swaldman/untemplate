@@ -35,7 +35,7 @@ val DefaultTranspiler : Transpiler = defaultTranspile
 //      Perhaps the logic should be abstracted out in common
 object UntemplateSource:
   final case class Metadata( mbLastModMetaOption : Option[Long] )
-final case class UntemplateSource( provenance : String, lines : Vector[String] ):
+final case class UntemplateSource( provenance : String, lines : Vector[String], metadata : Option[UntemplateSource.Metadata] ):
   lazy val textLen : Int = lines.foldLeft(0)( (accum, next) => accum + next.length ) + lines.length * codegenutil.LineSep.length
 
 // XXX: Not DRY! Added support for SideScala by just mimicking in parallel untemplate logic.

@@ -230,6 +230,7 @@ abstract class Untemplate[-A, +B] extends Function1[A,Result[B]]:
   def UntemplateHeaderNote                  : String
   def UntemplateAttributes                  : immutable.Map[String,Any]
   def UntemplateFullyQualifiedName          : String = s"${UntemplatePackage}.${UntemplateName}"
+  def UntemplateLastModified                : Option[Long]
 
   lazy val UntemplateAttributesLowerCased : LowerCased.Map = LowerCased.attributesFrom(this)
 

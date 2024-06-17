@@ -29,8 +29,9 @@ object PackageSource:
       val untemplateSource: String => Task[UntemplateSource] =
         untemplateSourceName => ZIO.attemptBlocking {
           val sourcePath = untemplateSourceNamesToPaths(untemplateSourceName)
+          val metadata = UntemplateSource.Metadata(Some(Files.getLastModifiedTime(sourcePath).toMillis))
           val lines = Files.readAllLines(sourcePath, codec.charSet).asScala.to(Vector)
-          UntemplateSource( sourcePath.toString, lines )
+          UntemplateSource( sourcePath.toString, lines, Some(metadata) )
         }
       val sideScalaPaths = allFilePaths.filter(path => Files.isRegularFile(path) && path.toString.endsWith(DotScalaSuffix))
       val sideScalaSourceNameVec = sideScalaPaths.map(_.getFileName.toString)
