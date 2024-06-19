@@ -499,7 +499,8 @@ private def transpileToWriter (
   w.indentln(1)(s"""val UntemplateOutputMetadataTypeDeclared  : String = "${perhapsCustomizedOutputMetadataType}"""")
   w.indentln(1)(s"""val UntemplateOutputMetadataTypeCanonical : Option[String] = untemplate.Macro.nonEmptyStringOption( untemplate.Macro.recursiveCanonicalName[${perhapsCustomizedOutputMetadataType}] )""")
   w.indentln(1)(s"""val UntemplateHeaderNote                  : String = "${mbHeaderNote.getOrElse("")}"""")
-  w.indentln(1)(s"""val UntemplateLastModified                : Option[String] = ${src.metadata.flatMap( _.mbLastModMetaOption ).fold("None")(l => "Some("+l+")")}""")
+  w.indentln(1)(s"""val UntemplateLastModified                : Option[Long] = ${src.metadata.flatMap( _.mbLastModMetaOption ).fold("None")(l => "Some("+l+"L)")}""")
+  w.indentln(1)( """val UntemplateSynthetic                   : Boolean = false""") // transpiled from UntemplateSource, as what we are transpiling is, are by definition not synthetic
   w.writeln()
 
   val extraConstructorText =

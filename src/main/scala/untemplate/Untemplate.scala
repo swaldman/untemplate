@@ -217,6 +217,31 @@ object Untemplate:
 
   type AnyUntemplate = Untemplate[Nothing,Any]
 
+  class Synthetic[-A, +B] (
+    core                                      : A => Result[B],
+    val UntemplateName                        : String,
+    val UntemplateInputName                   : String,
+    val UntemplateInputTypeDeclared           : String,
+    val UntemplateInputTypeCanonical          : Option[String],
+    val UntemplateInputDefaultArgument        : Option[_ >: A],
+    val UntemplateOutputMetadataTypeDeclared  : String,
+    val UntemplateOutputMetadataTypeCanonical : Option[String],
+    val UntemplateHeaderNote                  : String,
+    val UntemplateAttributes                  : immutable.Map[String,Any],
+    val UntemplateLastModified                : Option[Long]
+  ) extends Untemplate[A,B]:
+
+    def apply( a : A ) : Result[B] = core(a)
+
+    override val UntemplateFunction  = this
+    override val UntemplateSynthetic = true
+    override val UntemplatePackage   = "<synthetic>"
+
+
+    override def toString() : String = s"untemplate.Untemplate.Synthetic[${UntemplateInputTypeDeclared},${UntemplateOutputMetadataTypeDeclared}]@${UntemplateFullyQualifiedName}"
+
+  end Synthetic
+
 abstract class Untemplate[-A, +B] extends Function1[A,Result[B]]:
   def UntemplateFunction                    : untemplate.Untemplate[A,B]
   def UntemplateName                        : String
@@ -229,8 +254,10 @@ abstract class Untemplate[-A, +B] extends Function1[A,Result[B]]:
   def UntemplateOutputMetadataTypeCanonical : Option[String]
   def UntemplateHeaderNote                  : String
   def UntemplateAttributes                  : immutable.Map[String,Any]
-  def UntemplateFullyQualifiedName          : String = s"${UntemplatePackage}.${UntemplateName}"
   def UntemplateLastModified                : Option[Long]
+  def UntemplateSynthetic                   : Boolean
+
+  def UntemplateFullyQualifiedName          : String = s"${UntemplatePackage}.${UntemplateName}"
 
   lazy val UntemplateAttributesLowerCased : LowerCased.Map = LowerCased.attributesFrom(this)
 
