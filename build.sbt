@@ -4,16 +4,16 @@ ThisBuild / publishTo := {
 }
 
 ThisBuild / organization := "com.mchange"
-ThisBuild / version      := "0.1.4"
+ThisBuild / version      := "0.1.5-SNAPSHOT"
 
-val ZIOVersion = "2.1.3"
+val ZIOVersion = "2.1.19"
 
 lazy val root = project
   .in(file("."))
   .enablePlugins(JavaAppPackaging)
   .settings (
     name                     := "untemplate",
-    scalaVersion             := "3.3.3",
+    scalaVersion             := "3.3.6",
     // scalacOptions       += "-explain",
     resolvers                += Resolver.mavenLocal,
     libraryDependencies      += "dev.zio" %% "zio" % ZIOVersion,
@@ -40,20 +40,41 @@ lazy val plugin = project
     name := "untemplate-sbt-plugin"
   )
 
-val MillVersion = "0.11.7"
+val ScalaVersionScala2 = "2.13.15"
+val ScalaVersionScala3 = "3.7.1"
+val MillVersionScala2  = "0.11.7"
+val MillVersionScala3  = "1.0.0"
 
 lazy val mill = project
   .in(file("mill"))
   .dependsOn(root)
   .settings (
     name := "untemplate-mill",
-    scalaVersion        := "2.13.11",
+    crossScalaVersions  := List( /*ScalaVersionScala2,*/ ScalaVersionScala3 ),
     scalacOptions       += "-deprecation",
-    scalacOptions       += "-Ytasty-reader",
-    resolvers += Resolver.mavenLocal,
-    libraryDependencies += "com.lihaoyi" %% "mill-main" % MillVersion,
-    libraryDependencies += "com.lihaoyi" %% "mill-scalalib" % MillVersion,
-    pomExtra            := pomExtraForProjectName_Apache2( name.value )
+    pomExtra            := pomExtraForProjectName_Apache2( name.value ),
+    resolvers           += Resolver.mavenLocal,
+    libraryDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, _)) =>
+          List( "com.lihaoyi" %% "mill-main" % MillVersionScala2, "com.lihaoyi" %% "mill-scalalib" % MillVersionScala2 )
+        case Some((3, _)) =>
+          List( "com.lihaoyi" %% "mill-libs" % MillVersionScala3 )
+        case _            => Nil
+      }
+    },
+    excludeDependencies ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((3, n)) => List("org.scala-lang.modules" % "scala-collection-compat_3", "com.lihaoyi" % "sourcecode_3", "org.scala-lang.modules" % "scala-xml_3")
+        case _            => Nil
+      }
+    },
+    scalacOptions ++= {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, n)) => List("-Ytasty-reader")
+        case _            => Nil
+      }
+    }
   )
 
 def pomExtraForProjectName_Apache2( projectName : String ) = {
