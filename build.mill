@@ -1,0 +1,57 @@
+//| mill-version: 1.0.0
+//| mill-jvm-version: 17
+//| mvnDeps: ["com.lihaoyi::mill-contrib-buildinfo:$MILL_VERSION"]
+//+---------------------------------------------------------------
+
+package build
+
+import mill.*, scalalib.*
+import mill.javalib.publish.{Developer,License,PomSettings,VersionControl}
+import mill.contrib.buildinfo.BuildInfo
+
+trait UntemplateBuildModule extends ScalaModule with SonatypeCentralPublishModule:
+  override def publishVersion = "0.2.0"
+  def makePomSettings( description : String ) =
+    PomSettings(
+      description = description,
+      organization = "com.mchange",
+      url = "https://github.com/swaldman/mill-daemon",
+      licenses = Seq(License.`Apache-2.0`),
+      versionControl = VersionControl.github("swaldman", "mill-daemon"),
+      developers = Seq(
+        Developer("swaldman", "Steve Waldman", "https://github.com/swaldman")
+      )
+    )
+
+object `package` extends UntemplateBuildModule with BuildInfo:
+  override def scalaVersion = "3.3.6"
+  override def artifactName = "untemplate"
+  override def pomSettings  = Task{ makePomSettings("Untemplate, templates as a minimalist wrapper of a Scala function") }
+  override def mvnDeps = Seq(
+    mvn"dev.zio::zio:2.1.19",
+    mvn"com.github.scopt::scopt:4.1.0",
+    mvn"com.mchange::literal:0.1.2",
+    mvn"com.mchange::codegenutil:0.0.2",
+  )
+  override def buildInfoPackageName = "untemplate.build"
+  override def buildInfoStaticCompiled: Boolean = true
+  override def buildInfoMembers: T[Seq[BuildInfo.Value]] =
+    val ts =
+      import java.time.{Instant,ZoneId}
+      import java.time.format.DateTimeFormatter
+      val now = Instant.now
+      DateTimeFormatter.RFC_1123_DATE_TIME.withZone( ZoneId.systemDefault() ).format(now)
+    Seq(
+      BuildInfo.Value("UntemplateVersion", publishVersion()),
+      BuildInfo.Value("BuildTimestamp", ts)
+    )
+  object `mill` extends UntemplateBuildModule:
+    override def moduleDeps = Seq(build)
+    override def scalaVersion = "3.7.1"
+    override def artifactName = "untemplate-mill"
+    override def pomSettings  = Task{ makePomSettings("A mill plugin for processing untemplates.") }
+    override def mvnDeps = Seq(
+      mvn"com.lihaoyi::mill-libs:1.0.0"
+    )
+
+
