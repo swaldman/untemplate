@@ -11,6 +11,8 @@ import mill.contrib.buildinfo.BuildInfo
 
 trait UntemplateBuildModule extends ScalaModule with SonatypeCentralPublishModule:
   override def publishVersion = "0.2.0"
+  override def sonatypeCentralShouldRelease: T[Boolean] = Task { false }
+
   def makePomSettings( description : String ) =
     PomSettings(
       description = description,
@@ -53,5 +55,3 @@ object `package` extends UntemplateBuildModule with BuildInfo:
     override def mvnDeps = Seq(
       mvn"com.lihaoyi::mill-libs:1.0.0"
     )
-
-
