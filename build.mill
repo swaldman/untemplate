@@ -47,7 +47,7 @@ object `package` extends UntemplateBuildModule with BuildInfo:
       BuildInfo.Value("UntemplateVersion", publishVersion()),
       BuildInfo.Value("BuildTimestamp", ts)
     )
-  object `mill` extends UntemplateBuildModule:
+  object `mill-plugin` extends UntemplateBuildModule:
     override def moduleDeps = Seq(build)
     override def scalaVersion = "3.7.1"
     override def artifactName = "untemplate-mill"

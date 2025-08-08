@@ -10,7 +10,7 @@ import scala.util.Using
 
 
 val SourceUrl = "https://raw.githubusercontent.com/com-lihaoyi/mill/refs/heads/main/mill"
-val TargetPath = os.Path("millw", os.pwd)
+val TargetPath = os.Path("mill", os.pwd)
 
 Using.resource( new BufferedInputStream( new URL(SourceUrl).openStream() ) ): is =>
   val exists = os.exists(TargetPath)
@@ -21,4 +21,4 @@ Using.resource( new BufferedInputStream( new URL(SourceUrl).openStream() ) ): is
     val perms : os.PermSet = "rwxr-xr-x"
     os.write(TargetPath, is, perms=perms)
 
-println("millw updated.")
+println("mill updated.")
