@@ -104,16 +104,19 @@ object PackageSource:
     )
 
   def unifyLastWins( sets : Seq[Set[PackageSource]] ) : Set[PackageSource] =
-    val locationPackages = sets.flatMap( _.map( _.locationPackage ) ).toSet
-    val options = locationPackages.map: locationPackage =>
-      sets.foldLeft( None : Option[PackageSource] ): (accum, next) =>
-        ( next.find( _.locationPackage == locationPackage ), accum ) match
-          case (Some(ps), None)         => Some(ps)
-          case (None, Some(ps))         => Some(ps)
-          case (None, None)             => None
-          case (Some(last),Some(prior)) => Some(mergeLastWins(prior,last))
-    options.flatten      
-
+    if sets.size == 1 then
+      sets.head
+    else
+      val locationPackages = sets.flatMap( _.map( _.locationPackage ) ).toSet
+      val options = locationPackages.map: locationPackage =>
+        sets.foldLeft( None : Option[PackageSource] ): (accum, next) =>
+          ( next.find( _.locationPackage == locationPackage ), accum ) match
+            case (Some(ps), None)         => Some(ps)
+            case (None, Some(ps))         => Some(ps)
+            case (None, None)             => None
+            case (Some(last),Some(prior)) => Some(mergeLastWins(prior,last))
+      options.flatten
+ 
 case class PackageSource (
   locationPackage          : LocationPackage,
   untemplateSourceNames    : Vector[String],

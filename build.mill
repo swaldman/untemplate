@@ -10,7 +10,7 @@ import mill.javalib.publish.{Developer,License,PomSettings,VersionControl}
 import mill.contrib.buildinfo.BuildInfo
 
 trait UntemplateBuildModule extends ScalaModule with SonatypeCentralPublishModule:
-  override def publishVersion = "0.2.1-SNAPSHOT"
+  override def publishVersion = "0.3.0-SNAPSHOT"
   override def sonatypeCentralShouldRelease: T[Boolean] = Task { false }
 
   def makePomSettings( description : String ) =

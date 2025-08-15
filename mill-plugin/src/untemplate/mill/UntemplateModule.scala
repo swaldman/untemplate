@@ -7,7 +7,7 @@ import untemplate.*
 
 trait UntemplateModule extends ScalaModule {
 
-  def untemplateSource : T[PathRef] = Task.Source {
+  def untemplateSources : T[Seq[PathRef]] = Task.Sources {
     moduleDir / "untemplate"
   }
 
@@ -21,7 +21,7 @@ trait UntemplateModule extends ScalaModule {
     untemplate.Customizer.NeverCustomize
 
   def untemplateGenerateScala = Task(persistent=true) {
-    Untemplate.unsafeTranspileRecursive(untemplateSource().path.toNIO, Task.dest.toNIO, untemplateSelectCustomizer, untemplateIndexNameFullyQualified, untemplateFlatten())
+    Untemplate.unsafeTranspileRecursive(untemplateSources().map( _.path.toNIO ), Task.dest.toNIO, untemplateSelectCustomizer, untemplateIndexNameFullyQualified, untemplateFlatten())
     PathRef(Task.dest)
   }
 
