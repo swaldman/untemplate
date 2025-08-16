@@ -7,7 +7,17 @@ import untemplate.*
 
 trait UntemplateModule extends ScalaModule {
 
+  import upickle.default.ReadWriter
+
+  given ReadWriter[Identifier] = summon[ReadWriter[String]].bimap[Identifier]( id => id.toString, s => toIdentifier(s))
+  given ReadWriter[LocationPackage] = summon[ReadWriter[List[Identifier]]].bimap[LocationPackage](lp => lp.toList, idl => LocationPackage(idl))
+
   def untemplateSourcesFolders : Seq[os.SubPath] = Seq("untemplate")
+
+  def untemplateSourcesPrefixPackagesFromModuleDir : Map[String,String] = Map.empty
+
+  def untemplateSourcesPrefixPackages : T[Map[os.Path,LocationPackage]] = Task:
+    untemplateSourcesPrefixPackagesFromModuleDir.map( (k, v) => ( os.Path(k, moduleDir), LocationPackage.fromDotty(v) ) )
 
   def untemplateSources : T[Seq[PathRef]] = Task.Sources(untemplateSourcesFolders*)
 
@@ -21,7 +31,8 @@ trait UntemplateModule extends ScalaModule {
     untemplate.Customizer.NeverCustomize
 
   def untemplateGenerateScala = Task(persistent=true) {
-    Untemplate.unsafeTranspileRecursive(untemplateSources().map( _.path.toNIO ), Task.dest.toNIO, untemplateSelectCustomizer, untemplateIndexNameFullyQualified, untemplateFlatten())
+    val prefixPackages = untemplateSourcesPrefixPackages().map( (k,v) => ( k.toNIO, v ) )
+    Untemplate.unsafeTranspileRecursive(untemplateSources().map( _.path.toNIO ), Task.dest.toNIO, untemplateSelectCustomizer, untemplateIndexNameFullyQualified, untemplateFlatten(), prefixPackages)
     PathRef(Task.dest)
   }
 

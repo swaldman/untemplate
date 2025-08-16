@@ -23,6 +23,8 @@ object LocationPackage:
       else prefixPackage ::: pieces.map(piece => asIdentifier(piece))
     }
 
+  def apply( idl : List[Identifier] ) : LocationPackage = idl
+
   extension (lp: LocationPackage)
     def toList: List[Identifier] = lp
     //def toString() : String = lp.mkString(".") // I'd rather just use toString() for "dotty", but the underlying list's toString is called regardless.
