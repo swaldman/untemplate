@@ -23,7 +23,7 @@ object Untemplate:
 
   private def loadPackageSources(source : Path, prefixPackage : LocationPackage) : Task[Set[PackageSource]] = PackageSource.fromBaseDirectoryRecursive(source, prefixPackage = prefixPackage)
 
-  private def loadPackageSources(sources : Seq[Path], prefixPackages : Map[Path,LocationPackage] = Map.empty) : Task[Set[PackageSource]] =
+  private def loadPackageSources(sources : Seq[Path], prefixPackages : Map[Path,LocationPackage]) : Task[Set[PackageSource]] =
     val maybePackageSources =
       ZIO.collectAll:
         sources.map: p =>
@@ -226,7 +226,7 @@ object Untemplate:
     transpileRecursive(source, dest, selectCustomizer, fullyQualifiedIndexName, flatten, LocationPackage.default)
 
   def transpileRecursive(sources : Seq[Path], dest : Path, selectCustomizer : Customizer.Selector, fullyQualifiedIndexName : Option[String], flatten : Boolean, prefixPackages : Map[Path,LocationPackage] = Map.empty): ZIO[Any, Throwable, Unit] =
-    transpileRecursive(loadPackageSources(sources), dest, selectCustomizer, fullyQualifiedIndexName, flatten)
+    transpileRecursive(loadPackageSources(sources, prefixPackages), dest, selectCustomizer, fullyQualifiedIndexName, flatten)
 
   def unsafeTranspileRecursive(source : Path, dest : Path, selectCustomizer : Customizer.Selector, fullyQualifiedIndexName : Option[String], flatten : Boolean, prefixPackage : LocationPackage) : Unit =
     Unsafe.unsafely {
