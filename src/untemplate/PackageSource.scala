@@ -47,10 +47,10 @@ object PackageSource:
       PackageSource(locationPackage, untemplateSourceNameVec, untemplateSourceMetadata, untemplateSource, sideScalaSourceNameVec, sideScalaSourceMetadata, sideScalaSource, codec)
     }
 
-  def fromDirectory( dirPath : Path, baseDirPath : Option[Path] = None, codec : Codec = Codec.UTF8 ) : Task[PackageSource] =
+  def fromDirectory( dirPath : Path, baseDirPath : Option[Path] = None, codec : Codec = Codec.UTF8, prefixPackage : LocationPackage = LocationPackage.default ) : Task[PackageSource] =
     for
       _               <- assertDirectories(dirPath :: baseDirPath.toList)
-      locationPackage <- LocationPackage.fromLocation( dirPath, baseDirPath )
+      locationPackage <- LocationPackage.fromLocation( dirPath, baseDirPath, prefixPackage )
       packageSource   <- fromDirectory(locationPackage, dirPath, codec)
     yield packageSource
 
