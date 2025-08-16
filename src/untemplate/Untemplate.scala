@@ -21,13 +21,14 @@ object Untemplate:
             this.copy(mbFullyQualifiedFunctionNameForIndexing = Some(untemplateScala.fullyQualifiedFunctionName))
       }
 
-  private def loadPackageSources(source : Path) : Task[Set[PackageSource]] = PackageSource.fromBaseDirectoryRecursive(source)
+  private def loadPackageSources(source : Path, prefixPackage : LocationPackage) : Task[Set[PackageSource]] = PackageSource.fromBaseDirectoryRecursive(source, prefixPackage = prefixPackage)
 
-  private def loadPackageSources(sources : Seq[Path]) : Task[Set[PackageSource]] =
+  private def loadPackageSources(sources : Seq[Path], prefixPackages : Map[Path,LocationPackage] = Map.empty) : Task[Set[PackageSource]] =
     val maybePackageSources =
       ZIO.collectAll:
         sources.map: p =>
-          loadPackageSources(p).map( Some.apply ).catchSome:
+          val prefixPackage = prefixPackages.getOrElse( p, LocationPackage.default )
+          loadPackageSources(p, prefixPackage).map( Some.apply ).catchSome:
             case _ : java.nio.file.NoSuchFileException => println(s"untemplate source directory '$p' not found, skipping."); ZIO.none // just skip missing directories
     maybePackageSources.map(_.flatten).map(PackageSource.unifyLastWins)
 
@@ -218,20 +219,26 @@ object Untemplate:
       _ <- conditionallyIndex( dest, generationRecords, fullyQualifiedIndexName, flatten )
     yield ()
 
-  def transpileRecursive(source : Path, dest : Path, selectCustomizer : Customizer.Selector, fullyQualifiedIndexName : Option[String], flatten : Boolean): ZIO[Any, Throwable, Unit] =
-    transpileRecursive(loadPackageSources(source), dest, selectCustomizer, fullyQualifiedIndexName, flatten)
+  def transpileRecursive(source : Path, dest : Path, selectCustomizer : Customizer.Selector, fullyQualifiedIndexName : Option[String], flatten : Boolean, prefixPackage : LocationPackage): ZIO[Any, Throwable, Unit] =
+    transpileRecursive(loadPackageSources(source, prefixPackage), dest, selectCustomizer, fullyQualifiedIndexName, flatten)
 
-  def transpileRecursive(sources : Seq[Path], dest : Path, selectCustomizer : Customizer.Selector, fullyQualifiedIndexName : Option[String], flatten : Boolean): ZIO[Any, Throwable, Unit] =
+  def transpileRecursive(source : Path, dest : Path, selectCustomizer : Customizer.Selector, fullyQualifiedIndexName : Option[String], flatten : Boolean): ZIO[Any, Throwable, Unit] =
+    transpileRecursive(source, dest, selectCustomizer, fullyQualifiedIndexName, flatten, LocationPackage.default)
+
+  def transpileRecursive(sources : Seq[Path], dest : Path, selectCustomizer : Customizer.Selector, fullyQualifiedIndexName : Option[String], flatten : Boolean, prefixPackages : Map[Path,LocationPackage] = Map.empty): ZIO[Any, Throwable, Unit] =
     transpileRecursive(loadPackageSources(sources), dest, selectCustomizer, fullyQualifiedIndexName, flatten)
 
-  def unsafeTranspileRecursive(source : Path, dest : Path, selectCustomizer : Customizer.Selector, fullyQualifiedIndexName : Option[String], flatten : Boolean) : Unit =
+  def unsafeTranspileRecursive(source : Path, dest : Path, selectCustomizer : Customizer.Selector, fullyQualifiedIndexName : Option[String], flatten : Boolean, prefixPackage : LocationPackage) : Unit =
     Unsafe.unsafely {
-      Runtime.default.unsafe.run(transpileRecursive(source, dest, selectCustomizer, fullyQualifiedIndexName, flatten)).getOrThrow()
+      Runtime.default.unsafe.run(transpileRecursive(source, dest, selectCustomizer, fullyQualifiedIndexName, flatten, prefixPackage)).getOrThrow()
     }
 
-  def unsafeTranspileRecursive(sources : Seq[Path], dest : Path, selectCustomizer : Customizer.Selector, fullyQualifiedIndexName : Option[String], flatten : Boolean) : Unit =
+  def unsafeTranspileRecursive(source : Path, dest : Path, selectCustomizer : Customizer.Selector, fullyQualifiedIndexName : Option[String], flatten : Boolean) : Unit =
+    unsafeTranspileRecursive(source, dest, selectCustomizer, fullyQualifiedIndexName, flatten, LocationPackage.default)
+
+  def unsafeTranspileRecursive(sources : Seq[Path], dest : Path, selectCustomizer : Customizer.Selector, fullyQualifiedIndexName : Option[String], flatten : Boolean, prefixPackages : Map[Path,LocationPackage] = Map.empty) : Unit =
     Unsafe.unsafely {
-      Runtime.default.unsafe.run(transpileRecursive(sources, dest, selectCustomizer, fullyQualifiedIndexName, flatten)).getOrThrow()
+      Runtime.default.unsafe.run(transpileRecursive(sources, dest, selectCustomizer, fullyQualifiedIndexName, flatten, prefixPackages)).getOrThrow()
     }
 
   type AnyUntemplate = Untemplate[Nothing,Any]

@@ -54,11 +54,11 @@ object PackageSource:
       packageSource   <- fromDirectory(locationPackage, dirPath, codec)
     yield packageSource
 
-  def fromBaseDirectoryRecursive(baseDirPath : Path, codec : Codec = Codec.UTF8 ) : Task[Set[PackageSource]] =
+  def fromBaseDirectoryRecursive(baseDirPath : Path, codec : Codec = Codec.UTF8, prefixPackage : LocationPackage = LocationPackage.default ) : Task[Set[PackageSource]] =
     val someBdp = Some(baseDirPath)
     for
       dirPaths     <- ZIO.attemptBlocking(Files.walk(baseDirPath).toScala(List).filter(path => Files.isDirectory(path)))
-      taskList     =  dirPaths.map(dirPath => fromDirectory( dirPath, someBdp, codec)) //List[Task[PackageSource]]
+      taskList     =  dirPaths.map(dirPath => fromDirectory( dirPath, someBdp, codec, prefixPackage)) //List[Task[PackageSource]]
       pkgSourceSet <- ZIO.mergeAll(taskList)(Set.empty[PackageSource])( (set, pkgSource) => set + pkgSource ) : Task[Set[PackageSource]]
     yield pkgSourceSet.filter( _.untemplateSourceNames.nonEmpty )
 
