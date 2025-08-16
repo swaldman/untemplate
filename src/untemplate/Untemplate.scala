@@ -23,7 +23,13 @@ object Untemplate:
 
   private def loadPackageSources(source : Path) : Task[Set[PackageSource]] = PackageSource.fromBaseDirectoryRecursive(source)
 
-  private def loadPackageSources(sources : Seq[Path]) : Task[Set[PackageSource]] = ZIO.collectAll(sources.map(loadPackageSources)).map(PackageSource.unifyLastWins)
+  private def loadPackageSources(sources : Seq[Path]) : Task[Set[PackageSource]] =
+    val maybePackageSources =
+      ZIO.collectAll:
+        sources.map: p =>
+          loadPackageSources(p).map( Some.apply ).catchSome:
+            case _ : java.nio.file.NoSuchFileException => println(s"untemplate source directory '$p' not found, skipping."); ZIO.none // just skip missing directories
+    maybePackageSources.map(_.flatten).map(PackageSource.unifyLastWins)
 
   private def fullyQualifiedFunctionToUntemplate(fqf : String) : String =
     val lastDot = fqf.lastIndexOf('.')                                    // -1 if default package
