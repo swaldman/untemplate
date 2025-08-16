@@ -7,9 +7,9 @@ import untemplate.*
 
 trait UntemplateModule extends ScalaModule {
 
-  def untemplateSources : T[Seq[PathRef]] = Task.Sources {
-    moduleDir / "untemplate"
-  }
+  def untemplateSourcesFolders : Seq[os.SubPath] = Seq("untemplate")
+
+  def untemplateSources : T[Seq[PathRef]] = Task.Sources(untemplateSourcesFolders*)
 
   def untemplateFlatten = Task {
     false
